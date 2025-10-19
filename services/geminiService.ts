@@ -1,208 +1,218 @@
 
-import { GoogleGenAI, Type, Modality } from '@google/genai';
+import { GoogleGenAI, Type, Modality, Part } from "@google/genai";
 import { ProductContent, GeneratedImageSet } from '../types';
 
-// Fix: Initialize the GoogleGenAI client. The API key is read from process.env.API_KEY as per guidelines.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
-/**
- * Converts a File object to a GoogleGenerativeAI.Part object.
- * @param file The file to convert.
- * @returns A promise that resolves to a Part object.
- */
-const fileToGenerativePart = async (file: File) => {
+// Helper function to convert File to a base64-encoded string for the API
+const fileToGenerativePart = async (file: File): Promise<Part> => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.onloadend = () => {
+      // The result includes the data URL prefix, so we remove it.
+      // e.g., "data:image/jpeg;base64,LzlqLzRBQ..." -> "LzlqLzRBQ..."
+      if (typeof reader.result === 'string') {
+        resolve(reader.result.split(',')[1]);
+      } else {
+        resolve(''); 
+      }
+    };
     reader.readAsDataURL(file);
   });
+  const base64EncodedData = await base64EncodedDataPromise;
   return {
-    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
+    inlineData: {
+      data: base64EncodedData,
+      mimeType: file.type,
+    },
   };
 };
 
-const productContentSchema = {
-    type: Type.OBJECT,
-    properties: {
-        name: { type: Type.STRING, description: "Nome do produto conciso e atraente." },
-        description: { type: Type.STRING, description: "Descrição de marketing persuasiva e detalhada do produto." },
-        category: { type: Type.STRING, description: "Categoria mais apropriada para o produto." },
-        brand: { type: Type.STRING, description: "Marca do produto, se identificável." },
-        sku: { type: Type.STRING, description: "Um código SKU sugerido para o produto." },
-        price: { type: Type.NUMBER, description: "Preço de venda competitivo sugerido em BRL." },
-        promotionalPrice: { type: Type.NUMBER, description: "Preço promocional sugerido, se aplicável." },
-        keywords: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description: "Uma lista de palavras-chave relevantes para SEO."
-        },
-        variations: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    color: { type: Type.STRING },
-                    size: { type: Type.STRING },
-                    stock: { type: Type.INTEGER },
-                    price: { type: Type.NUMBER },
-                },
-            },
-            description: "Lista de variações do produto (cor, tamanho, etc.), se aplicável."
-        },
-        weight: { type: Type.NUMBER, description: "Peso estimado do produto em kg." },
-        dimensions: { type: Type.STRING, description: "Dimensões estimadas da embalagem no formato 'C x L x A cm'." },
-        promotionalSlogan: { type: Type.STRING, description: "Um slogan curto e cativante para campanhas de marketing." },
+// Initialize the Gemini client
+// FIX: Initialize GoogleGenAI client with API key from environment variables.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+const contentGenerationModel = 'gemini-2.5-pro'; // Use Pro for complex JSON generation
+const imageGenerationModel = 'gemini-2.5-flash-image';
+
+const productSchema = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING, description: 'Creative and attractive product name, up to 120 characters.' },
+    description: { type: Type.STRING, description: 'A detailed, persuasive, and SEO-friendly product description, using paragraphs and bullet points in Markdown format. Highlight key features and benefits.' },
+    category: { type: Type.STRING, description: 'The most relevant product category, e.g., "Electronics > Headphones".' },
+    brand: { type: Type.STRING, description: 'The product brand. If not available, leave empty.' },
+    sku: { type: Type.STRING, description: 'A suggested unique SKU for the product.' },
+    price: { type: Type.NUMBER, description: 'A competitive market price for the product in BRL.' },
+    promotionalPrice: { type: Type.NUMBER, description: 'A suggested promotional price, slightly lower than the main price.' },
+    keywords: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'A list of 10-15 relevant SEO keywords.'
     },
-    required: ["name", "description", "category", "price", "keywords", "variations"]
+    variations: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          color: { type: Type.STRING, description: "Color of the variation, e.g., 'Black'." },
+          size: { type: Type.STRING, description: "Size of the variation, e.g., 'M'. Can be empty." },
+          stock: { type: Type.INTEGER, description: 'A suggested initial stock number, e.g., 100.' },
+          price: { type: Type.NUMBER, description: 'Price for this specific variation. Can be same as main price.' },
+        },
+        required: ['color', 'stock']
+      },
+      description: 'A list of possible product variations (e.g., different colors or sizes). Generate at least 2 if applicable.'
+    },
+    weight: { type: Type.NUMBER, description: 'Estimated product weight in kilograms (kg) for shipping.' },
+    dimensions: { type: Type.STRING, description: 'Estimated package dimensions as a string "L x W x H cm" for shipping.' },
+    promotionalSlogan: { type: Type.STRING, description: 'A short, catchy slogan (5-7 words) for marketing images.' }
+  },
+  required: ['name', 'description', 'category', 'price', 'keywords', 'variations', 'promotionalSlogan']
 };
 
-/**
- * Generates product content using the Gemini API.
- */
 export const generateProductContent = async (
   image: File | null,
   title: string,
   url: string
 ): Promise<ProductContent> => {
-  const parts: any[] = [];
-  let prompt = `Com base nas informações fornecidas, gere um conteúdo completo para a listagem de um produto de e-commerce. O tom deve ser vendedor e persuasivo, focado no público brasileiro.
+  const promptParts: Part[] = [];
 
-Informações disponíveis:
-`;
+  let textPrompt = `You are a world-class e-commerce marketing expert. Your task is to generate comprehensive and persuasive product content based on the provided information. 
+  
+  **Instructions:**
+  1. Analyze the product from the image, keywords, or link provided.
+  2. Create compelling, SEO-friendly content that will drive sales.
+  3. All monetary values should be in BRL (Brazilian Real).
+  4. Generate the output in JSON format according to the provided schema.
+  5. The product is for the Brazilian market, so all text should be in Brazilian Portuguese.
+  
+  **Product Information:**`;
 
   if (image) {
-      const imagePart = await fileToGenerativePart(image);
-      parts.push(imagePart);
-      prompt += `- Imagem do produto.\n`;
+    const imagePart = await fileToGenerativePart(image);
+    promptParts.push(imagePart);
+    textPrompt += `\n- Product Image: [Provided]`;
   }
   if (title) {
-      prompt += `- Palavras-chave/Título: ${title}\n`;
+    textPrompt += `\n- Keywords/Title: ${title}`;
   }
   if (url) {
-      prompt += `- Link de referência: ${url}\n`;
+    textPrompt += `\n- Product Link (for context): ${url}`;
   }
 
-  prompt += `
-Instruções:
-1.  **Nome do Produto:** Crie um nome claro, conciso e otimizado para busca.
-2.  **Descrição Persuasiva:** Elabore uma descrição rica em detalhes, destacando os benefícios e características principais. Use parágrafos curtos e bullet points para facilitar a leitura.
-3.  **Categoria:** Sugira a categoria mais adequada.
-4.  **Preço:** Sugira um preço competitivo em BRL. Se aplicável, sugira um preço promocional.
-5.  **Variações:** Se a imagem ou o título sugerir variações (cores, tamanhos), liste-as. Caso contrário, retorne um array vazio.
-6.  **Logística:** Estime o peso (kg) e as dimensões da embalagem (C x L x A cm).
-7.  **Marketing:** Crie um slogan promocional curto e impactante.
-8.  **SEO:** Gere uma lista de palavras-chave relevantes.
-
-A saída deve ser estritamente um objeto JSON que corresponda ao schema fornecido. Não inclua markdown ou qualquer texto fora do JSON.
-`;
-  parts.push({ text: prompt });
+  if (!image && !title && !url) {
+    throw new Error("Please provide an image, keywords, or a URL to generate content.");
+  }
+  
+  promptParts.push({ text: textPrompt });
 
   try {
     const response = await ai.models.generateContent({
-        // Fix: Use a model appropriate for complex text tasks and JSON generation.
-        model: 'gemini-2.5-pro',
-        contents: { parts },
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: productContentSchema as any,
-        },
+      model: contentGenerationModel,
+      contents: [{ parts: promptParts }],
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: productSchema,
+        temperature: 0.5,
+      },
     });
 
-    const jsonString = response.text.trim();
-    return JSON.parse(jsonString) as ProductContent;
-  } catch(e) {
-      console.error("Error generating product content:", e);
-      throw new Error("Não foi possível gerar o conteúdo do produto. Verifique o console para mais detalhes.");
+    const jsonText = response.text.trim();
+    const generatedContent = JSON.parse(jsonText);
+    
+    const finalContent: ProductContent = {
+        name: generatedContent.name || '',
+        description: generatedContent.description || '',
+        category: generatedContent.category || '',
+        brand: generatedContent.brand,
+        sku: generatedContent.sku,
+        price: generatedContent.price || 0,
+        promotionalPrice: generatedContent.promotionalPrice,
+        keywords: generatedContent.keywords || [],
+        variations: generatedContent.variations || [],
+        weight: generatedContent.weight,
+        dimensions: generatedContent.dimensions,
+        promotionalSlogan: generatedContent.promotionalSlogan || '',
+        generatedImages: [],
+    };
+
+    return finalContent;
+  } catch (error) {
+    console.error("Error generating product content:", error);
+    throw new Error("Failed to generate product content. The model may have returned an invalid response. Please try again.");
   }
 };
 
-/**
- * Generates product marketing images using the Gemini API.
- */
+const generateSingleImage = async (prompt: string, image?: File | null): Promise<string | null> => {
+    try {
+        const contentParts: Part[] = [];
+        if (image) {
+            contentParts.push(await fileToGenerativePart(image));
+        }
+        contentParts.push({ text: prompt });
+
+        const response = await ai.models.generateContent({
+            model: imageGenerationModel,
+            contents: { parts: contentParts },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+        
+        // FIX: Safely access response candidates and parts to find image data.
+        for (const part of response.candidates?.[0]?.content?.parts || []) {
+            if (part.inlineData) {
+                const base64ImageBytes: string = part.inlineData.data;
+                return `data:image/png;base64,${base64ImageBytes}`;
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error(`Failed to generate image for prompt "${prompt}"`, e);
+        return null;
+    }
+};
+
 export const generateProductImages = async (
   content: ProductContent,
-  baseImage: File | null
+  originalImage: File | null
 ): Promise<GeneratedImageSet> => {
-  if (!baseImage) {
-    console.warn("generateProductImages called without a base image. Returning empty set.");
+  if (!originalImage) {
     return { withText: [], clean: [], modern: [] };
   }
 
-  const imagePart = await fileToGenerativePart(baseImage);
-
-  const generateImage = async (prompt: string): Promise<string | null> => {
-      try {
-          const response = await ai.models.generateContent({
-              // Fix: Use a model appropriate for image generation and editing.
-              model: 'gemini-2.5-flash-image',
-              contents: {
-                  parts: [
-                      imagePart,
-                      { text: prompt }
-                  ]
-              },
-              config: {
-                  responseModalities: [Modality.IMAGE],
-              },
-          });
-          
-          const firstCandidate = response.candidates?.[0];
-          if (firstCandidate) {
-            for (const part of firstCandidate.content.parts) {
-                if (part.inlineData) {
-                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                }
-            }
-          }
-          return null;
-      } catch (error) {
-          console.error("Image generation failed for prompt:", prompt, error);
-          return null;
-      }
-  };
+  const slogan = content.promotionalSlogan || "Oferta Especial";
 
   const prompts = {
       withText: [
-          `Adicione o texto promocional "${content.promotionalSlogan}" a esta imagem de produto de forma criativa e legível. Use uma fonte moderna e atraente.`,
-          `Crie um banner para redes sociais a partir desta imagem, incluindo a frase de efeito: "${content.promotionalSlogan}". O design deve ser vibrante.`,
-          `Incorpore o slogan "${content.promotionalSlogan}" nesta imagem, como se fosse parte de um anúncio de revista de luxo.`,
-          `Gere uma versão desta imagem com o texto "${content.promotionalSlogan}" em uma faixa elegante na parte inferior.`,
-          `Sobreponha o texto "${content.promotionalSlogan}" nesta imagem com um efeito de neon sutil.`
+          `Add the text "${slogan}" to this product image in a stylish, modern, and prominent font. Integrate it naturally with the image composition.`,
+          `Create a marketing banner from this image. Add the slogan "${slogan}" using a bold, eye-catching design.`,
+          `Overlay the phrase "${slogan}" on this image. Use elegant typography that complements the product.`,
       ],
       clean: [
-          `Remova o fundo desta imagem e substitua por um fundo branco puro de estúdio (#FFFFFF). Ajuste a iluminação para que seja profissional e focada no produto.`,
-          `Isole o produto desta imagem em um fundo cinza claro (#F5F5F5). Garanta que as sombras sejam suaves e naturais.`,
-          `Crie uma foto de produto limpa (packshot) a partir desta imagem, com fundo branco e um leve reflexo na base.`,
-          `Otimize esta imagem para um catálogo de e-commerce: fundo branco, sem distrações, e com cores bem definidas.`,
-          `Recorte o produto e coloque-o sobre um fundo branco. A imagem deve parecer ter sido tirada em um estúdio fotográfico profissional.`
+          'Remove the background from this product image and replace it with a clean, light gray gradient for a professional e-commerce look.',
+          'Isolate the product from this image and place it on a pure white background. Add a subtle shadow to give it depth. This is for a product catalog.',
+          'Re-render this product with studio lighting on a minimalist background. Keep it clean and focused on the product details.',
       ],
       modern: [
-          `Coloque este produto em um cenário de estilo de vida moderno e minimalista que combine com ele. Use iluminação dramática.`,
-          `Crie uma composição artística com este produto, usando elementos geométricos e uma paleta de cores moderna e contrastante.`,
-          `Gere uma imagem "flat lay" deste produto, cercado por acessórios relevantes que contem uma história.`,
-          `Mostre este produto em uso em um ambiente urbano e contemporâneo. A imagem deve ter uma sensação de movimento e energia.`,
-          `Crie uma imagem conceitual e abstrata que destaque a principal característica deste produto. Use cores vibrantes e formas dinâmicas.`
+          'Place this product in a modern, real-life setting that matches its category, like a stylish home or outdoors. The lighting should be cinematic.',
+          'Create a dynamic lifestyle shot of this product. Use motion blur and interesting angles to make it look exciting.',
+          'Generate a visually striking image by adding abstract geometric shapes and neon lighting effects around this product.',
       ]
   };
+  
+  const withTextPromises = prompts.withText.map(p => generateSingleImage(p, originalImage));
+  const cleanPromises = prompts.clean.map(p => generateSingleImage(p, originalImage));
+  const modernPromises = prompts.modern.map(p => generateSingleImage(p, originalImage));
 
-  const withTextPromises = prompts.withText.map(p => generateImage(p));
-  const cleanPromises = prompts.clean.map(p => generateImage(p));
-  const modernPromises = prompts.modern.map(p => generateImage(p));
+  const [withText, clean, modern] = await Promise.all([
+    Promise.all(withTextPromises),
+    Promise.all(cleanPromises),
+    Promise.all(modernPromises),
+  ]);
 
-  try {
-    const [withText, clean, modern] = await Promise.all([
-        Promise.all(withTextPromises),
-        Promise.all(cleanPromises),
-        Promise.all(modernPromises),
-    ]);
-    
-    return { 
-        withText: withText.filter((img): img is string => img !== null), 
-        clean: clean.filter((img): img is string => img !== null), 
-        modern: modern.filter((img): img is string => img !== null),
-    };
-  } catch(e) {
-    console.error("Error generating product images:", e);
-    throw new Error("Não foi possível gerar as imagens do produto. Verifique o console para mais detalhes.");
-  }
+  return {
+    withText: withText.map(img => img || ''),
+    clean: clean.map(img => img || ''),
+    modern: modern.map(img => img || ''),
+  };
 };
