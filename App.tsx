@@ -35,11 +35,14 @@ const App: React.FC = () => {
       // 1. Generate Product Content (description, keywords, etc.)
       const content = await generateProductContent(image, title, url);
       setProductContent(content);
-      setGenerationStep('images');
 
-      // 2. Generate Product Images based on the new content
-      const images = await generateProductImages(content);
-      setGeneratedImages(images);
+      // 2. Generate Product Images by editing the original, if one was provided
+      if (image) {
+        setGenerationStep('images');
+        const images = await generateProductImages(content, image);
+        setGeneratedImages(images);
+      }
+
       setGenerationStep('done');
 
     } catch (err) {

@@ -126,65 +126,76 @@ export const generateProductContent = async (image: File | null, title: string, 
 
 
 /**
- * Generates a set of marketing images for a product using a text-to-image model.
+ * Generates a set of marketing images for a product by editing the original image.
  * @param content The product content, used for context.
+ * @param originalImage The original product image file to be edited.
  * @returns A promise that resolves to a GeneratedImageSet.
  */
-export const generateProductImages = async (content: ProductContent): Promise<GeneratedImageSet> => {
+export const generateProductImages = async (content: ProductContent, originalImage: File): Promise<GeneratedImageSet> => {
     
-    // Helper function to generate a single image and return its base64 string.
-    const generateSingleImage = async (prompt: string): Promise<string | null> => {
+    // Helper function to generate a single edited image and return its base64 string.
+    const generateSingleImage = async (prompt: string, imageFile: File): Promise<string | null> => {
         try {
-            const response = await ai.models.generateImages({
-                model: 'imagen-4.0-generate-001',
-                prompt: prompt,
+            const imagePart = await fileToGenerativePart(imageFile);
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image', // Model specialized in image editing
+                contents: {
+                    parts: [
+                        imagePart,
+                        { text: prompt },
+                    ],
+                },
                 config: {
-                  numberOfImages: 1,
-                  outputMimeType: 'image/jpeg',
+                    responseModalities: [Modality.IMAGE], // Expecting an image response
                 },
             });
-
-            const base64ImageBytes = response.generatedImages?.[0]?.image?.imageBytes;
-            if (base64ImageBytes) {
-                return `data:image/jpeg;base64,${base64ImageBytes}`;
+            
+            // Extract the image data from the response
+            const firstPart = response.candidates?.[0]?.content?.parts?.[0];
+            if (firstPart && firstPart.inlineData) {
+                const base64ImageBytes: string = firstPart.inlineData.data;
+                const mimeType = firstPart.inlineData.mimeType;
+                return `data:${mimeType};base64,${base64ImageBytes}`;
             }
+            console.warn("Image generation returned no image data for prompt:", prompt);
             return null;
+
         } catch (error) {
-            console.error(`Image generation failed for prompt: "${prompt}"`, error);
+            console.error(`Image editing failed for prompt: "${prompt}"`, error);
             return null;
         }
     };
 
     const slogan = content.promotionalSlogan || 'Oferta Especial';
-    const productName = content.name;
 
     const withTextPrompts = [
-        `Anúncio de marketing atraente para '${productName}'. A imagem deve ter um visual premium com o slogan '${slogan}' integrado elegantemente com tipografia sofisticada. Foco no apelo visual do produto.`,
-        `Banner promocional para e-commerce mostrando '${productName}'. O texto '${slogan}' deve ser claro e impactante. Composição dinâmica e cores vibrantes.`,
-        `Post para redes sociais para o produto '${productName}'. Incluir o texto '${slogan}' de forma criativa. Estilo moderno, limpo e profissional.`,
-        `Imagem de herói para um site, destacando '${productName}'. O slogan '${slogan}' deve ser posicionado de forma a não cobrir o produto. Iluminação dramática.`,
-        `Gráfico para e-mail marketing de '${productName}'. O texto '${slogan}' deve ser o call-to-action principal. Fundo que complementa o produto.`,
+        `Edite esta imagem para criar um anúncio de marketing. Adicione o slogan '${slogan}' de forma elegante, com tipografia profissional e de alta classe.`,
+        `Transforme esta imagem em um banner promocional. O texto '${slogan}' deve ser o foco, com grande impacto visual. Mantenha o produto como estrela principal.`,
+        `Crie um post para redes sociais a partir desta foto. Integre o texto '${slogan}' de forma criativa na composição. Estilo moderno e limpo.`,
+        `Ajuste esta imagem para ser a capa de um site. Posicione o slogan '${slogan}' em uma área que não cubra detalhes importantes do produto.`,
+        `Gere um gráfico para e-mail marketing a partir desta imagem. O texto '${slogan}' deve funcionar como uma chamada para ação (call-to-action).`,
     ];
 
     const cleanPrompts = [
-        `Fotografia de produto profissional de e-commerce de '${productName}', em um fundo branco infinito e limpo. Iluminação de estúdio perfeita, destacando as texturas e detalhes. Alta resolução, fotorrealista.`,
-        `Imagem de catálogo para '${productName}'. Fundo cinza claro e neutro. Sombra suave e realista. Foco total no produto.`,
-        `Foto de '${productName}' isolado em um fundo branco puro. Sem distrações. Perfeito para marketplaces.`,
-        `Close-up detalhado de '${productName}' em um fundo branco. A imagem deve mostrar a qualidade do material e a construção.`,
-        `Composição minimalista com '${productName}' em um fundo branco. Ângulo de 45 graus.`,
+        `Edite esta imagem: isole o produto principal e coloque-o em um fundo branco infinito, limpo, de estúdio. A iluminação deve ser perfeita, como em um e-commerce profissional. Remova qualquer distração.`,
+        `Refine esta imagem para um catálogo. Isole o produto e coloque-o em um fundo cinza claro e neutro. Adicione uma sombra suave e realista para dar profundidade.`,
+        `Otimize esta foto para marketplaces: recorte o produto e coloque-o em um fundo totalmente branco (#FFFFFF), sem sombras ou reflexos.`,
+        `Faça um close-up do produto nesta imagem, mantendo o fundo branco. O objetivo é mostrar a qualidade do material e a textura em detalhes.`,
+        `Limpe o fundo desta imagem, deixando-o completamente branco. Ajuste o brilho e contraste do produto para que ele se destaque.`,
     ];
 
     const modernPrompts = [
-        `Uma foto de estilo de vida mostrando '${productName}' em um ambiente moderno e minimalista que se relaciona com seu uso. Iluminação natural suave, profundidade de campo rasa.`,
-        `Composição artística com '${productName}' sobre um pedestal ou superfície de mármore. Fundo com gradiente de cor suave. Conceito de luxo e sofisticação.`,
-        `Foto de '${productName}' com um efeito de levitação sobre um fundo de cor sólida e vibrante. Conceito criativo e moderno.`,
-        `Cena com '${productName}' e elementos gráficos geométricos (círculos, linhas) em um layout de design contemporâneo. Paleta de cores moderna.`,
-        `'${productName}' em um cenário abstrato com reflexos e sombras longas. Iluminação de estúdio dramática, criando um clima de mistério e elegância.`,
+        `Recrie esta cena com um estilo moderno. Coloque o produto sobre uma superfície de mármore ou concreto, com um fundo de gradiente suave. Conceito de luxo.`,
+        `Edite esta imagem para que o produto pareça estar levitando sobre um fundo de cor sólida e vibrante. Adicione uma sombra sutil abaixo dele para realismo.`,
+        `Dê um toque de design a esta foto. Adicione elementos gráficos geométricos (círculos, linhas) que complementem o formato do produto.`,
+        `Crie uma composição artística com o produto. Use reflexos na superfície e sombras longas e dramáticas para um clima elegante e sofisticado.`,
+        `Altere o ambiente desta foto para um cenário minimalista de estilo de vida, que tenha relação com o uso do produto. Use iluminação natural e desfoque o fundo.`,
     ];
     
-    const withTextPromises = withTextPrompts.map(p => generateSingleImage(p));
-    const cleanPromises = cleanPrompts.map(p => generateSingleImage(p));
-    const modernPromises = modernPrompts.map(p => generateSingleImage(p));
+    // Pass the original image to each generation call
+    const withTextPromises = withTextPrompts.map(p => generateSingleImage(p, originalImage));
+    const cleanPromises = cleanPrompts.map(p => generateSingleImage(p, originalImage));
+    const modernPromises = modernPrompts.map(p => generateSingleImage(p, originalImage));
 
     const [withText, clean, modern] = await Promise.all([
         Promise.all(withTextPromises),
