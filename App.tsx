@@ -1,8 +1,7 @@
-
 import React, { useState, useCallback } from 'react';
 import ProductInput from './components/ProductInput';
 import ProductOutput from './components/ProductOutput';
-import { ProductContent } from './types';
+import { ProductContent, GeneratedImageSet } from './types';
 import { generateProductContent, generateProductImages } from './services/geminiService';
 import SparklesIcon from './components/icons/SparklesIcon';
 
@@ -13,13 +12,13 @@ function App() {
   const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
   const [error, setError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({ withText: [], clean: [], modern: [] });
 
-  const handleGenerateImages = useCallback(async (content: ProductContent) => {
+  const handleGenerateImages = useCallback(async (content: ProductContent, imageFile: File | null) => {
     if (!content) return;
     setGenerationStep('images');
     try {
-      const images = await generateProductImages(content.name, content.description);
+      const images = await generateProductImages(content, imageFile);
       setGeneratedImages(images);
       setGenerationStep('done');
     } catch (err: any) {
@@ -32,7 +31,7 @@ function App() {
     setGenerationStep('content');
     setError(null);
     setProductContent(null);
-    setGeneratedImages([]);
+    setGeneratedImages({ withText: [], clean: [], modern: [] });
 
     if (image) {
         const reader = new FileReader();
@@ -47,7 +46,7 @@ function App() {
     try {
       const content = await generateProductContent(image, title);
       setProductContent(content);
-      await handleGenerateImages(content); // Chain image generation
+      await handleGenerateImages(content, image); // Chain image generation
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro inesperado.');
       setGenerationStep('error');

@@ -20,3 +20,9 @@ export interface ProductContent {
   promotionalSlogan?: string;
   generatedImages?: string[];
 }
+
+export interface GeneratedImageSet {
+  withText: string[];
+  clean: string[];
+  modern: string[];
+}

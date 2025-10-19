@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { ProductContent, ProductVariation } from '../types';
+import { ProductContent, ProductVariation, GeneratedImageSet } from '../types';
 import CopyIcon from './icons/CopyIcon';
 import CheckIcon from './icons/CheckIcon';
 import TrashIcon from './icons/TrashIcon';
@@ -12,7 +11,7 @@ interface ProductOutputProps {
   generationStep: GenerationStep;
   error: string | null;
   originalImagePreview: string | null;
-  generatedImages: string[];
+  generatedImages: GeneratedImageSet;
 }
 
 const useCopyToClipboard = (text: string) => {
@@ -119,7 +118,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
             <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
                  <SkeletonLoader className="h-5 w-1/3 mb-3" />
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    {[...Array(5)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
+                    {[...Array(15)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
                 </div>
             </div>
         </div>
@@ -199,31 +198,81 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
             </div>
         </div>
 
-        <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-300 mb-4">Imagens de Marketing (IA)</h3>
-             <p className="text-sm text-gray-400 -mt-2 mb-4">Imagens geradas automaticamente. Clique em uma para editar.</p>
+        <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-6">
+            <h3 className="text-lg font-semibold text-gray-300">Imagens de Marketing (IA)</h3>
+             <p className="text-sm text-gray-400 -mt-4">Imagens geradas automaticamente. Clique em uma para editar.</p>
           
-          {generationStep === 'images' && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {[...Array(5)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
-              </div>
-          )}
-          {generatedImages.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {generatedImages.map((img, index) => (
-                      <img 
-                          key={index}
-                          src={img}
-                          alt={`Generated product image ${index + 1}`}
-                          className="aspect-square w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => setEditorConfig({isOpen: true, image: img})}
-                      />
-                  ))}
-              </div>
-          )}
-          {generatedImages.length === 0 && generationStep !== 'images' && (
-            <p className="text-sm text-gray-500 text-center py-4">As imagens aparecerão aqui após a geração do conteúdo.</p>
-          )}
+            {generationStep === 'images' && (
+                <div className="space-y-4 animate-pulse">
+                    <div>
+                        <h4 className="text-md font-semibold text-gray-400 mb-2">Com Textos Magnéticos</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {[...Array(5)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-md font-semibold text-gray-400 mb-2">Imagens Limpas e Otimizadas</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {[...Array(5)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-md font-semibold text-gray-400 mb-2">Design Moderno e Efeitos</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {[...Array(5)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {generatedImages.clean.length > 0 && (
+                <div className="space-y-6">
+                    <div>
+                        <h4 className="text-md font-semibold text-gray-400 mb-3">Com Textos Magnéticos</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {generatedImages.withText.map((img, index) => img ? (
+                                <img 
+                                    key={`with-text-${index}`}
+                                    src={img}
+                                    alt={`Imagem com texto ${index + 1}`}
+                                    className="aspect-square w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => setEditorConfig({isOpen: true, image: img})}
+                                />
+                            ) : <div key={`with-text-${index}`} className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-xs text-gray-500">Falha</div>)}
+                        </div>
+                    </div>
+                     <div>
+                        <h4 className="text-md font-semibold text-gray-400 mb-3">Imagens Limpas e Otimizadas</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {generatedImages.clean.map((img, index) => img ? (
+                                <img 
+                                    key={`clean-${index}`}
+                                    src={img}
+                                    alt={`Imagem limpa ${index + 1}`}
+                                    className="aspect-square w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => setEditorConfig({isOpen: true, image: img})}
+                                />
+                            ) : <div key={`clean-${index}`} className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-xs text-gray-500">Falha</div>)}
+                        </div>
+                    </div>
+                     <div>
+                        <h4 className="text-md font-semibold text-gray-400 mb-3">Design Moderno e Efeitos</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {generatedImages.modern.map((img, index) => img ? (
+                                <img 
+                                    key={`modern-${index}`}
+                                    src={img}
+                                    alt={`Imagem moderna ${index + 1}`}
+                                    className="aspect-square w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => setEditorConfig({isOpen: true, image: img})}
+                                />
+                            ) : <div key={`modern-${index}`} className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-xs text-gray-500">Falha</div>)}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {generatedImages.clean.length === 0 && generationStep !== 'images' && (
+              <p className="text-sm text-gray-500 text-center py-4">As imagens aparecerão aqui após a geração do conteúdo.</p>
+            )}
         </div>
         
         <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
