@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ProductContent } from '../types';
 
 const API_KEY = process.env.API_KEY;
@@ -154,23 +154,44 @@ export const generateProductImages = async (
     });
   }
 
-  const prompt = `Uma fotografia de produto com qualidade de estúdio e estilo de vida em HD 4K do seguinte item: '${productName}'. 
-  Descrição: '${productDescription}'. 
-  A imagem deve ser limpa, profissional e atraente para um anúncio de e-commerce, com espaço negativo e composição adequada para adicionar texto de marketing ou logotipos. 
-  Gere 5 variações com diferentes ângulos e cenários.`;
-
   try {
-    const response = await ai.models.generateImages({
-      model: 'imagen-4.0-generate-001',
-      prompt: prompt,
-      config: {
-        numberOfImages: 5,
-        outputMimeType: 'image/jpeg',
-        aspectRatio: '1:1',
-      },
+    // gemini-2.5-flash-image generates one image per call, so we make 5 parallel requests for 5 variations.
+    const imagePromises = Array.from({ length: 5 }).map((_, i) => {
+      const prompt = `Fotografia de produto profissional para e-commerce: '${productName}'. 
+      Descrição: '${productDescription}'.
+      A imagem deve ser limpa, com boa iluminação e atraente.
+      Variação ${i + 1} de 5: por favor, use um ângulo ou cenário ligeiramente diferente.`;
+
+      return ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [{ text: prompt }],
+        },
+        config: {
+          responseModalities: [Modality.IMAGE],
+        },
+      });
     });
 
-    return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
+    const responses = await Promise.all(imagePromises);
+    
+    const images: string[] = [];
+    for (const response of responses) {
+      for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+        if (part.inlineData) {
+          const base64ImageBytes: string = part.inlineData.data;
+          const mimeType = part.inlineData.mimeType;
+          images.push(`data:${mimeType};base64,${base64ImageBytes}`);
+          break; // Found image, move to next response
+        }
+      }
+    }
+    
+    if (images.length === 0) {
+      throw new Error("A IA não retornou nenhuma imagem. Tente refinar sua solicitação.");
+    }
+
+    return images;
   } catch (error) {
     console.error("Error generating images:", error);
     throw new Error("Falha ao gerar imagens da IA. Tente novamente mais tarde.");
