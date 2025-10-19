@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, Type } from '@google/genai';
 import { ProductContent, GeneratedImageSet } from '../types';
 
@@ -21,7 +22,7 @@ const fileToGenerativePart = async (file: File) => {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Define the JSON schema for the product content
+// Define the JSON schema for the product content (used for image/title-based generation)
 const productContentSchema = {
   type: Type.OBJECT,
   properties: {
@@ -61,43 +62,84 @@ const productContentSchema = {
 
 export const generateProductContent = async (
   image: File | null,
-  title: string
+  title: string,
+  url: string,
 ): Promise<ProductContent> => {
   const model = 'gemini-2.5-flash';
   const parts: any[] = [];
+  let prompt = '';
+  let config: any = {};
 
-  let prompt = `Você é um especialista em e-commerce e marketing digital. Sua tarefa é criar o conteúdo completo para a página de um produto.
-  
-  Analise a imagem e/ou o título fornecido e gere uma resposta JSON estruturada de acordo com o schema fornecido. Seja criativo, persuasivo e otimizado para SEO.
-  
-  **Título Fornecido pelo Usuário (use como base):** "${title}"
-  `;
+  if (url) {
+    prompt = `Você é um especialista em e-commerce e otimização de conversão (CRO). Sua tarefa é analisar a página do produto na URL: ${url}.
+    
+    Com base na sua análise, crie um conteúdo de produto totalmente novo e otimizado para maximizar as vendas.
+    
+    Se o usuário forneceu um título/palavras-chave adicionais ("${title}"), use-os como guia.
+    
+    Sua resposta DEVE SER APENAS um objeto JSON válido, sem nenhum texto ou formatação extra (como markdown \`\`\`json). O objeto JSON deve ter as seguintes chaves:
+    - "name": string (Título do produto otimizado para SEO, 50-70 caracteres)
+    - "description": string (Descrição detalhada e persuasiva, com markdown e bullet points para 3 características)
+    - "category": string (Formato: 'Principal > Subcategoria')
+    - "brand": string (Opcional)
+    - "sku": string (Opcional, sugestão de SKU)
+    - "price": number (Sugestão de preço)
+    - "promotionalPrice": number (Opcional, preço promocional)
+    - "keywords": string[] (Array de 10-15 palavras-chave)
+    - "variations": { "color": string, "size": string, "stock": number, "price": number }[] (Array de variações; pode ser vazio [])
+    - "weight": number (Opcional, peso em kg)
+    - "dimensions": string (Opcional, formato 'C x L x A cm')
+    - "promotionalSlogan": string (Opcional, slogan curto e cativante)`;
 
-  if (image) {
-    prompt += "\n\n**Imagem Fornecida:** Analise os detalhes visuais da imagem para extrair características, estilo, material e público-alvo.";
-    const imagePart = await fileToGenerativePart(image);
-    parts.push(imagePart);
+    parts.push({ text: prompt });
+    config = {
+        tools: [{googleSearch: {}}],
+        temperature: 0.2,
+    };
   } else {
-     prompt += "\n\n**Nenhuma Imagem Fornecida:** Baseie sua resposta inteiramente no título fornecido.";
-  }
+    prompt = `Você é um especialista em e-commerce e marketing digital. Sua tarefa é criar o conteúdo completo para a página de um produto.
   
-  parts.push({ text: prompt });
+    Analise a imagem e/ou o título fornecido e gere uma resposta JSON estruturada de acordo com o schema fornecido. Seja criativo, persuasivo e otimizado para SEO.
+  
+    **Título Fornecido pelo Usuário (use como base):** "${title}"
+    `;
+
+    if (image) {
+      prompt += "\n\n**Imagem Fornecida:** Analise os detalhes visuais da imagem para extrair características, estilo, material e público-alvo.";
+      const imagePart = await fileToGenerativePart(image);
+      parts.push(imagePart);
+    } else {
+       prompt += "\n\n**Nenhuma Imagem Fornecida:** Baseie sua resposta inteiramente no título fornecido.";
+    }
+    
+    parts.push({ text: prompt });
+    config = {
+      responseMimeType: "application/json",
+      responseSchema: productContentSchema,
+      temperature: 0.7,
+    };
+  }
 
   try {
     const response = await ai.models.generateContent({
       model: model,
       contents: { parts: parts },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: productContentSchema,
-        temperature: 0.7,
-      },
+      config: config,
     });
 
-    const jsonText = response.text.trim();
+    let jsonText = response.text.trim();
+    
+    if (url) {
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[0];
+      } else {
+        throw new Error("A IA não retornou um JSON válido. Tente novamente.");
+      }
+    }
+
     const generatedContent = JSON.parse(jsonText) as ProductContent;
     
-    // Ensure variations is always an array to prevent crashes
     if (!generatedContent.variations) {
         generatedContent.variations = [];
     }
@@ -105,6 +147,9 @@ export const generateProductContent = async (
     return generatedContent;
   } catch (error) {
     console.error("Error generating product content:", error);
+     if (error instanceof SyntaxError) { // JSON parsing error
+        throw new Error("Falha ao analisar a resposta da IA. O formato do JSON pode ser inválido.");
+    }
     throw new Error("Falha ao gerar conteúdo da IA. Verifique o console para mais detalhes.");
   }
 };
@@ -141,7 +186,7 @@ export const generateProductImages = async (
   imageFile: File | null
 ): Promise<GeneratedImageSet> => {
   if (!imageFile) {
-      console.error("Image file is required to generate image variations.");
+      console.warn("Image file not provided, skipping image generation.");
       return { withText: [], clean: [], modern: [] };
   }
 

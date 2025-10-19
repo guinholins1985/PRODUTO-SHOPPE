@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import ProductInput from './components/ProductInput';
 import ProductOutput from './components/ProductOutput';
@@ -15,7 +16,7 @@ function App() {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({ withText: [], clean: [], modern: [] });
 
   const handleGenerateImages = useCallback(async (content: ProductContent, imageFile: File | null) => {
-    if (!content) return;
+    if (!content || !imageFile) return; // Also check for imageFile
     setGenerationStep('images');
     try {
       const images = await generateProductImages(content, imageFile);
@@ -27,7 +28,7 @@ function App() {
     }
   }, []);
 
-  const handleGenerate = useCallback(async (image: File | null, title: string) => {
+  const handleGenerate = useCallback(async (image: File | null, title: string, url: string) => {
     setGenerationStep('content');
     setError(null);
     setProductContent(null);
@@ -44,9 +45,14 @@ function App() {
     }
 
     try {
-      const content = await generateProductContent(image, title);
+      const content = await generateProductContent(image, title, url);
       setProductContent(content);
-      await handleGenerateImages(content, image); // Chain image generation
+      // Only generate images if the original input was an image
+      if (image) {
+        await handleGenerateImages(content, image);
+      } else {
+        setGenerationStep('done'); // If no image, we are done after content generation
+      }
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro inesperado.');
       setGenerationStep('error');
@@ -69,7 +75,7 @@ function App() {
                 </h1>
             </div>
             <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">
-            Automatize a criação de títulos, descrições e tags para seus produtos. Basta enviar uma imagem ou um título e deixar a nossa IA fazer o resto.
+            Automatize a criação de títulos, descrições e tags para seus produtos. Basta enviar uma imagem ou um link e deixar a nossa IA fazer o resto.
           </p>
         </header>
 
