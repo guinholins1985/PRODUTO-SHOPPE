@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Modality, Part } from "@google/genai";
 import { ProductContent, GeneratedImageSet } from '../types';
 
@@ -30,8 +29,8 @@ const fileToGenerativePart = async (file: File): Promise<Part> => {
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const contentGenerationModel = 'gemini-2.5-pro'; // Use Pro for complex JSON generation
-// Upgraded to Imagen 4 for SOTA image generation quality.
-const imageGenerationModel = 'imagen-4.0-generate-001';
+// Switched to a model that supports image editing.
+const imageGenerationModel = 'gemini-2.5-flash-image';
 
 const productSchema = {
   type: Type.OBJECT,
@@ -142,36 +141,45 @@ export const generateProductContent = async (
   }
 };
 
-const generateSingleImage = async (prompt: string): Promise<string | null> => {
+const generateSingleImage = async (prompt: string, image: File): Promise<string | null> => {
     try {
-        const response = await ai.models.generateImages({
+        const imagePart = await fileToGenerativePart(image);
+        const textPart = { text: prompt };
+
+        const response = await ai.models.generateContent({
             model: imageGenerationModel,
-            prompt: prompt,
+            contents: { parts: [imagePart, textPart] },
             config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/jpeg',
-              aspectRatio: '1:1',
+                responseModalities: [Modality.IMAGE],
             },
         });
-        
-        if (response.generatedImages && response.generatedImages[0]?.image?.imageBytes) {
-            const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-            return `data:image/jpeg;base64,${base64ImageBytes}`;
+
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                const base64ImageBytes: string = part.inlineData.data;
+                const mimeType = part.inlineData.mimeType || 'image/jpeg';
+                return `data:${mimeType};base64,${base64ImageBytes}`;
+            }
         }
         return null;
     } catch (e) {
-        console.error(`Failed to generate image for prompt "${prompt}"`, e);
+        console.error(`Failed to generate edited image for prompt "${prompt}"`, e);
         return null;
     }
 };
 
 export const generateProductImages = async (
   content: ProductContent,
-  originalImage: File | null // Kept for signature consistency, but no longer used by Imagen.
+  originalImage: File | null
 ): Promise<GeneratedImageSet> => {
   if (!content || !content.name) {
     console.warn("Cannot generate images without product content/name.");
     return { withText: [], clean: [], modern: [] };
+  }
+
+  if (!originalImage) {
+      console.warn("Cannot generate edited images without an original uploaded image.");
+      return { withText: [], clean: [], modern: [] };
   }
 
   const productName = content.name;
@@ -179,31 +187,31 @@ export const generateProductImages = async (
 
   const prompts = {
       withText: [
-        `Professional marketing banner for "${productName}". Featuring the slogan "${slogan}" in a bold, eye-catching design. Clean background, studio lighting. Photorealistic, 8k.`,
-        `Advertisement for "${productName}". The slogan "${slogan}" is elegantly integrated into the composition. Luxurious and modern feel.`,
-        `Social media post for "${productName}". The text "${slogan}" is overlaid with stylish typography. Vibrant colors.`,
-        `E-commerce hero image for "${productName}", with the promotional text "${slogan}" clearly visible. High resolution.`,
-        `A flat lay composition featuring "${productName}" with the slogan "${slogan}" written in a beautiful script font.`,
+        `Edit this product image into a professional marketing banner for "${productName}". Add the slogan "${slogan}" in a bold, eye-catching design. Use a clean background and studio lighting, keeping the product intact. Photorealistic, 8k.`,
+        `Modify this image to be an advertisement for "${productName}". Elegantly integrate the slogan "${slogan}" into the composition. Give it a luxurious and modern feel, enhancing the original product.`,
+        `Transform this image into a social media post for "${productName}". Overlay the text "${slogan}" with stylish typography and add vibrant colors, making the product pop.`,
+        `Create an e-commerce hero image from this photo of "${productName}". The promotional text "${slogan}" must be clearly visible. Enhance the resolution and quality.`,
+        `Recreate this image as a flat lay composition. The product "${productName}" should be the central element, with the slogan "${slogan}" written nearby in a beautiful script font.`,
       ],
       clean: [
-        `High-quality e-commerce photo of "${productName}" on a pure white background (#FFFFFF) with a subtle, soft shadow. Professional studio lighting, hyper-realistic, 8k.`,
-        `A clean shot of "${productName}" on a light gray gradient background. Perfect for a product catalog. Photorealistic.`,
-        `"${productName}" isolated on a minimalist background. Focus on product details and texture. Macro shot, high detail.`,
-        `Symmetrical, centered shot of "${productName}" on a solid, neutral color background. Professional e-commerce photography.`,
-        `Floating "${productName}" on a clean, seamless white background with perfect, even lighting. Minimalist and professional.`,
+        `Take this product image and place the product on a pure white background (#FFFFFF) with a subtle, soft shadow. Enhance it with professional studio lighting to make it hyper-realistic and 8k. Keep the product as the main focus.`,
+        `Edit this image to place the product "${productName}" on a light gray gradient background, perfect for a product catalog. Ensure the final result is photorealistic.`,
+        `Isolate the product "${productName}" from this image onto a minimalist background. Sharpen the focus on product details and texture for a high-detail macro shot.`,
+        `Create a symmetrical, centered shot of the product "${productName}" from this image. Place it on a solid, neutral color background. Emulate professional e-commerce photography.`,
+        `Make the product "${productName}" from this image appear to be floating on a clean, seamless white background. Apply perfect, even lighting for a minimalist and professional look.`,
       ],
       modern: [
-        `Lifestyle shot of "${productName}" being used in a modern, stylish real-life environment. Cinematic lighting, shallow depth of field.`,
-        `A dynamic action shot of "${productName}". Use motion blur and interesting angles to create a sense of excitement and energy.`,
-        `A visually striking, conceptual image of "${productName}" surrounded by abstract geometric shapes and soft neon lighting.`,
-        `"${productName}" placed in a realistic, relevant outdoor setting (e.g., a park for shoes, a beach for sunglasses). Beautiful natural lighting.`,
-        `"${productName}" in a conceptual, artistic setting. Use creative elements like water ripples, smoke, or light trails to create a premium feel.`
+        `Reimagine this product image as a lifestyle shot. Place the "${productName}" in a modern, stylish real-life environment. Apply cinematic lighting and a shallow depth of field, keeping the product clearly visible and in focus.`,
+        `Turn this image of "${productName}" into a dynamic action shot. Use motion blur and interesting angles to create a sense of excitement and energy, without losing product detail.`,
+        `Create a visually striking, conceptual image using this product "${productName}". Surround it with abstract geometric shapes and soft neon lighting, enhancing the original photo.`,
+        `Place the product "${productName}" from this image into a realistic, relevant outdoor setting (e.g., a park for shoes, a beach for sunglasses). Give it beautiful natural lighting.`,
+        `Transform this into a conceptual, artistic setting featuring "${productName}". Use creative elements like water ripples, smoke, or light trails to give the original image a premium feel.`
       ]
   };
   
-  const withTextPromises = prompts.withText.map(p => generateSingleImage(p));
-  const cleanPromises = prompts.clean.map(p => generateSingleImage(p));
-  const modernPromises = prompts.modern.map(p => generateSingleImage(p));
+  const withTextPromises = prompts.withText.map(p => generateSingleImage(p, originalImage));
+  const cleanPromises = prompts.clean.map(p => generateSingleImage(p, originalImage));
+  const modernPromises = prompts.modern.map(p => generateSingleImage(p, originalImage));
 
   const [withText, clean, modern] = await Promise.all([
     Promise.all(withTextPromises),
