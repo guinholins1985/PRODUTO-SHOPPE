@@ -126,37 +126,27 @@ export const generateProductContent = async (image: File | null, title: string, 
 
 
 /**
- * Generates a set of marketing images for a product using Gemini.
+ * Generates a set of marketing images for a product using a text-to-image model.
  * @param content The product content, used for context.
- * @param image The base product image file.
  * @returns A promise that resolves to a GeneratedImageSet.
  */
-export const generateProductImages = async (content: ProductContent, image: File | null): Promise<GeneratedImageSet> => {
-    if (!image) {
-        return { withText: [], clean: [], modern: [] };
-    }
-
-    const imagePart = await fileToGenerativePart(image);
-
-    const generateImage = async (prompt: string): Promise<string | null> => {
+export const generateProductImages = async (content: ProductContent): Promise<GeneratedImageSet> => {
+    
+    // Helper function to generate a single image and return its base64 string.
+    const generateSingleImage = async (prompt: string): Promise<string | null> => {
         try {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: {
-                    parts: [
-                        imagePart,
-                        { text: prompt }
-                    ]
-                },
+            const response = await ai.models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt: prompt,
                 config: {
-                    responseModalities: [Modality.IMAGE],
-                }
+                  numberOfImages: 1,
+                  outputMimeType: 'image/jpeg',
+                },
             });
-            
-            for (const part of response.candidates![0].content.parts) {
-                if (part.inlineData) {
-                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                }
+
+            const base64ImageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+            if (base64ImageBytes) {
+                return `data:image/jpeg;base64,${base64ImageBytes}`;
             }
             return null;
         } catch (error) {
@@ -166,34 +156,35 @@ export const generateProductImages = async (content: ProductContent, image: File
     };
 
     const slogan = content.promotionalSlogan || 'Oferta Especial';
+    const productName = content.name;
 
     const withTextPrompts = [
-        `Adicione o texto "${slogan}" de forma elegante e legível na imagem. Use uma fonte comercial atraente que se destaque.`,
-        `Incorpore a frase "${slogan}" com um design de texto moderno que chame a atenção, talvez em um canto da imagem.`,
-        `Coloque o slogan "${slogan}" em um banner ou faixa sutil sobre a imagem, sem cobrir o produto.`,
-        `Crie uma versão com o texto "${slogan}" em uma tipografia minimalista e sofisticada.`,
-        `Adicione o texto "${slogan}" com um efeito de sombra ou contorno para melhorar a legibilidade.`,
+        `Anúncio de marketing atraente para '${productName}'. A imagem deve ter um visual premium com o slogan '${slogan}' integrado elegantemente com tipografia sofisticada. Foco no apelo visual do produto.`,
+        `Banner promocional para e-commerce mostrando '${productName}'. O texto '${slogan}' deve ser claro e impactante. Composição dinâmica e cores vibrantes.`,
+        `Post para redes sociais para o produto '${productName}'. Incluir o texto '${slogan}' de forma criativa. Estilo moderno, limpo e profissional.`,
+        `Imagem de herói para um site, destacando '${productName}'. O slogan '${slogan}' deve ser posicionado de forma a não cobrir o produto. Iluminação dramática.`,
+        `Gráfico para e-mail marketing de '${productName}'. O texto '${slogan}' deve ser o call-to-action principal. Fundo que complementa o produto.`,
     ];
 
     const cleanPrompts = [
-        'Remova o fundo da imagem, deixando apenas o produto com um fundo branco profissional de estúdio.',
-        'Melhore a iluminação e as cores da imagem para torná-la mais vibrante e profissional, mantendo o fundo original.',
-        'Coloque o produto em um fundo de cor sólida e neutra (cinza claro) que complemente suas cores.',
-        'Crie uma sombra suave e realista para o produto, como se estivesse em uma superfície limpa.',
-        'Ajuste o foco para destacar perfeitamente o produto, desfocando levemente o fundo existente.',
+        `Fotografia de produto profissional de e-commerce de '${productName}', em um fundo branco infinito e limpo. Iluminação de estúdio perfeita, destacando as texturas e detalhes. Alta resolução, fotorrealista.`,
+        `Imagem de catálogo para '${productName}'. Fundo cinza claro e neutro. Sombra suave e realista. Foco total no produto.`,
+        `Foto de '${productName}' isolado em um fundo branco puro. Sem distrações. Perfeito para marketplaces.`,
+        `Close-up detalhado de '${productName}' em um fundo branco. A imagem deve mostrar a qualidade do material e a construção.`,
+        `Composição minimalista com '${productName}' em um fundo branco. Ângulo de 45 graus.`,
     ];
 
     const modernPrompts = [
-        'Adicione um fundo gradiente com cores modernas e suaves que combinem com o produto.',
-        'Crie um efeito de reflexo do produto em uma superfície espelhada ou de água abaixo dele.',
-        'Coloque o produto em um cenário de estilo de vida minimalista que se relacione com seu uso.',
-        'Adicione elementos gráficos geométricos e minimalistas (linhas, círculos) ao redor do produto para um visual moderno.',
-        'Crie uma composição artística com o produto em destaque sobre um fundo de textura abstrata (mármore, cimento, etc).',
+        `Uma foto de estilo de vida mostrando '${productName}' em um ambiente moderno e minimalista que se relaciona com seu uso. Iluminação natural suave, profundidade de campo rasa.`,
+        `Composição artística com '${productName}' sobre um pedestal ou superfície de mármore. Fundo com gradiente de cor suave. Conceito de luxo e sofisticação.`,
+        `Foto de '${productName}' com um efeito de levitação sobre um fundo de cor sólida e vibrante. Conceito criativo e moderno.`,
+        `Cena com '${productName}' e elementos gráficos geométricos (círculos, linhas) em um layout de design contemporâneo. Paleta de cores moderna.`,
+        `'${productName}' em um cenário abstrato com reflexos e sombras longas. Iluminação de estúdio dramática, criando um clima de mistério e elegância.`,
     ];
     
-    const withTextPromises = withTextPrompts.map(p => generateImage(p));
-    const cleanPromises = cleanPrompts.map(p => generateImage(p));
-    const modernPromises = modernPrompts.map(p => generateImage(p));
+    const withTextPromises = withTextPrompts.map(p => generateSingleImage(p));
+    const cleanPromises = cleanPrompts.map(p => generateSingleImage(p));
+    const modernPromises = modernPrompts.map(p => generateSingleImage(p));
 
     const [withText, clean, modern] = await Promise.all([
         Promise.all(withTextPromises),
@@ -202,8 +193,8 @@ export const generateProductImages = async (content: ProductContent, image: File
     ]);
     
     return { 
-        withText: withText.map(img => img || ''), 
-        clean: clean.map(img => img || ''), 
-        modern: modern.map(img => img || '') 
+        withText: withText.filter((img): img is string => !!img), 
+        clean: clean.filter((img): img is string => !!img), 
+        modern: modern.filter((img): img is string => !!img) 
     };
 };

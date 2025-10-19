@@ -37,8 +37,8 @@ const App: React.FC = () => {
       setProductContent(content);
       setGenerationStep('images');
 
-      // 2. Generate Product Images based on the new content and original image
-      const images = await generateProductImages(content, image);
+      // 2. Generate Product Images based on the new content
+      const images = await generateProductImages(content);
       setGeneratedImages(images);
       setGenerationStep('done');
 
@@ -53,7 +53,7 @@ const App: React.FC = () => {
   return (
     <div className="bg-gray-900 text-white min-h-screen font-sans">
       <header className="py-6 px-8 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
-        <h1 className="text-3xl font-bold text-center">Gerador de Conteúdo de Produto com IA</h1>
+        <h1 className="text-3xl font-bold text-center">MEGA ANUNCIO</h1>
         <p className="text-center text-gray-400 mt-2">Crie descrições, títulos e imagens para seus produtos em segundos.</p>
       </header>
       <main className="container mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-8 items-start">
