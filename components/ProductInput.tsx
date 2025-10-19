@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import UploadIcon from './icons/UploadIcon';
 import SparklesIcon from './icons/SparklesIcon';
@@ -31,8 +30,10 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      // Automatically trigger content generation on file upload.
+      onGenerate(file, title, '');
     }
-  }, []);
+  }, [onGenerate, title]);
 
   const onDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -116,6 +117,7 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
                   <div className="text-center text-gray-500">
                     <UploadIcon className="mx-auto h-12 w-12" />
                     <p>Arraste e solte ou clique para enviar</p>
+                    <p className="text-xs mt-1">A geração começará automaticamente</p>
                   </div>
                 )}
               </div>

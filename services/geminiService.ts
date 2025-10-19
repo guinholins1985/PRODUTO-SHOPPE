@@ -130,6 +130,14 @@ export const generateProductContent = async (
     let jsonText = response.text.trim();
     
     if (url) {
+      // Robustly clean the response to extract JSON, handling markdown fences
+      if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.substring(7);
+        if (jsonText.endsWith('```')) {
+            jsonText = jsonText.substring(0, jsonText.length - 3);
+        }
+        jsonText = jsonText.trim();
+      }
       const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         jsonText = jsonMatch[0];
@@ -140,15 +148,19 @@ export const generateProductContent = async (
 
     const generatedContent = JSON.parse(jsonText) as ProductContent;
     
+    // Defensive coding: ensure arrays exist to prevent render errors
     if (!generatedContent.variations) {
         generatedContent.variations = [];
+    }
+    if (!generatedContent.keywords) {
+        generatedContent.keywords = [];
     }
 
     return generatedContent;
   } catch (error) {
     console.error("Error generating product content:", error);
      if (error instanceof SyntaxError) { // JSON parsing error
-        throw new Error("Falha ao analisar a resposta da IA. O formato do JSON pode ser inválido.");
+        throw new Error(`Falha ao analisar a resposta da IA. O formato do JSON pode ser inválido. Detalhes: ${error.message}`);
     }
     throw new Error("Falha ao gerar conteúdo da IA. Verifique o console para mais detalhes.");
   }

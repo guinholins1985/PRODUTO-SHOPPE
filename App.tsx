@@ -1,100 +1,76 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import ProductInput from './components/ProductInput';
 import ProductOutput from './components/ProductOutput';
-import { ProductContent, GeneratedImageSet } from './types';
 import { generateProductContent, generateProductImages } from './services/geminiService';
-import SparklesIcon from './components/icons/SparklesIcon';
+import { ProductContent, GeneratedImageSet } from './types';
 
-export type GenerationStep = 'idle' | 'content' | 'images' | 'done' | 'error';
+// This type is used to track the UI state through the generation process.
+export type GenerationStep = 'idle' | 'content' | 'images' | 'error' | 'done';
 
-function App() {
-  const [productContent, setProductContent] = useState<ProductContent | null>(null);
+const App: React.FC = () => {
   const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [productContent, setProductContent] = useState<ProductContent | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({ withText: [], clean: [], modern: [] });
+  const [error, setError] = useState<string | null>(null);
+  const [originalImagePreview, setOriginalImagePreview] = useState<string | null>(null);
 
-  const handleGenerateImages = useCallback(async (content: ProductContent, imageFile: File | null) => {
-    if (!content || !imageFile) return; // Also check for imageFile
-    setGenerationStep('images');
-    try {
-      const images = await generateProductImages(content, imageFile);
-      setGeneratedImages(images);
-      setGenerationStep('done');
-    } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro ao gerar as imagens.');
-      setGenerationStep('error');
-    }
-  }, []);
-
-  const handleGenerate = useCallback(async (image: File | null, title: string, url: string) => {
-    setGenerationStep('content');
-    setError(null);
+  const handleGenerate = async (image: File | null, title: string, url: string) => {
+    // Reset state for a new generation
     setProductContent(null);
     setGeneratedImages({ withText: [], clean: [], modern: [] });
+    setError(null);
+    setGenerationStep('content');
+    
+    if (originalImagePreview) {
+      URL.revokeObjectURL(originalImagePreview);
+    }
 
     if (image) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setImagePreview(reader.result as string);
-        };
-        reader.readAsDataURL(image);
+      setOriginalImagePreview(URL.createObjectURL(image));
     } else {
-        setImagePreview(null);
+      setOriginalImagePreview(null);
     }
 
     try {
+      // 1. Generate Product Content (description, keywords, etc.)
       const content = await generateProductContent(image, title, url);
       setProductContent(content);
-      // Only generate images if the original input was an image
-      if (image) {
-        await handleGenerateImages(content, image);
-      } else {
-        setGenerationStep('done'); // If no image, we are done after content generation
-      }
-    } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro inesperado.');
+      setGenerationStep('images');
+
+      // 2. Generate Product Images based on the new content and original image
+      const images = await generateProductImages(content, image);
+      setGeneratedImages(images);
+      setGenerationStep('done');
+
+    } catch (err) {
+      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(errorMessage);
       setGenerationStep('error');
     }
-  }, [handleGenerateImages]);
-
+  };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white font-sans">
-      <div 
-        className="absolute top-0 left-0 w-full h-full bg-cover bg-center opacity-10"
-        style={{backgroundImage: 'radial-gradient(circle at top right, rgb(127, 29, 29) 0%, rgb(127, 29, 29) 10%,rgb(17, 24, 39) 10%, rgb(17, 24, 39) 100%)'}}
-      ></div>
-      <div className="relative container mx-auto px-4 py-8 md:py-16">
-        <header className="text-center mb-12">
-            <div className="inline-flex items-center gap-3 mb-4">
-                <SparklesIcon className="w-8 h-8 text-indigo-400"/>
-                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-                    E-Commerce Content Genie
-                </h1>
-            </div>
-            <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">
-            Automatize a criação de títulos, descrições e tags para seus produtos. Basta enviar uma imagem ou um link e deixar a nossa IA fazer o resto.
-          </p>
-        </header>
-
-        <main className="flex flex-col lg:flex-row gap-8 items-start">
-          <ProductInput onGenerate={handleGenerate} generationStep={generationStep} />
-          <ProductOutput 
-            content={productContent} 
-            generationStep={generationStep}
-            error={error} 
-            originalImagePreview={imagePreview}
-            generatedImages={generatedImages}
-          />
-        </main>
-        <footer className="text-center mt-12 text-gray-500 text-sm">
-            <p>&copy; {new Date().getFullYear()} E-Commerce Content Genie. Todos os direitos reservados.</p>
-        </footer>
-      </div>
+    <div className="bg-gray-900 text-white min-h-screen font-sans">
+      <header className="py-6 px-8 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
+        <h1 className="text-3xl font-bold text-center">Gerador de Conteúdo de Produto com IA</h1>
+        <p className="text-center text-gray-400 mt-2">Crie descrições, títulos e imagens para seus produtos em segundos.</p>
+      </header>
+      <main className="container mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-8 items-start">
+        <ProductInput onGenerate={handleGenerate} generationStep={generationStep} />
+        <ProductOutput 
+          content={productContent} 
+          generationStep={generationStep} 
+          error={error} 
+          originalImagePreview={originalImagePreview} 
+          generatedImages={generatedImages}
+        />
+      </main>
+      <footer className="text-center py-4 text-gray-500 text-sm">
+        Powered by Google Gemini API
+      </footer>
     </div>
   );
-}
+};
 
 export default App;
