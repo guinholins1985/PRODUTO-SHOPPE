@@ -36,10 +36,10 @@ const App: React.FC = () => {
       const content = await generateProductContent(image, title, url);
       setProductContent(content);
 
-      // 2. Generate Product Images by editing the original, if one was provided
+      // 2. Generate new Product Images from the generated content, if an image was initially provided to trigger the flow
       if (image) {
         setGenerationStep('images');
-        const images = await generateProductImages(content, image);
+        const images = await generateProductImages(content);
         setGeneratedImages(images);
       }
 

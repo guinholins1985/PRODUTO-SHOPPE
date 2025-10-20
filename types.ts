@@ -22,7 +22,7 @@ export interface ProductContent {
 }
 
 export interface GeneratedImageSet {
-  withText: string[];
-  clean: string[];
-  modern: string[];
+  withText: (string | null)[];
+  clean: (string | null)[];
+  modern: (string | null)[];
 }

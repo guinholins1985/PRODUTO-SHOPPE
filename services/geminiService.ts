@@ -126,76 +126,63 @@ export const generateProductContent = async (image: File | null, title: string, 
 
 
 /**
- * Generates a set of marketing images for a product by editing the original image.
- * @param content The product content, used for context.
- * @param originalImage The original product image file to be edited.
+ * Generates a set of new marketing images for a product using a text-to-image model.
+ * @param content The product content, used for context in prompts.
  * @returns A promise that resolves to a GeneratedImageSet.
  */
-export const generateProductImages = async (content: ProductContent, originalImage: File): Promise<GeneratedImageSet> => {
+export const generateProductImages = async (content: ProductContent): Promise<GeneratedImageSet> => {
     
-    // Helper function to generate a single edited image and return its base64 string.
-    const generateSingleImage = async (prompt: string, imageFile: File): Promise<string | null> => {
+    // Helper function to generate a single image and return its base64 string.
+    const generateImage = async (prompt: string): Promise<string | null> => {
         try {
-            const imagePart = await fileToGenerativePart(imageFile);
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image', // Model specialized in image editing
-                contents: {
-                    parts: [
-                        imagePart,
-                        { text: prompt },
-                    ],
-                },
+            const response = await ai.models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt: prompt,
                 config: {
-                    responseModalities: [Modality.IMAGE], // Expecting an image response
+                    numberOfImages: 1,
+                    outputMimeType: 'image/jpeg',
+                    aspectRatio: '1:1',
                 },
             });
-            
-            // Extract the image data from the response
-            const firstPart = response.candidates?.[0]?.content?.parts?.[0];
-            if (firstPart && firstPart.inlineData) {
-                const base64ImageBytes: string = firstPart.inlineData.data;
-                const mimeType = firstPart.inlineData.mimeType;
-                return `data:${mimeType};base64,${base64ImageBytes}`;
-            }
-            console.warn("Image generation returned no image data for prompt:", prompt);
-            return null;
-
+            const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+            return `data:image/jpeg;base64,${base64ImageBytes}`;
         } catch (error) {
-            console.error(`Image editing failed for prompt: "${prompt}"`, error);
+            console.error(`Image generation failed for prompt: "${prompt}"`, error);
             return null;
         }
     };
 
-    const slogan = content.promotionalSlogan || 'Oferta Especial';
+    const slogan = content.promotionalSlogan || 'Oferta Imperdível';
+    const productName = content.name;
+    const productDescription = content.description.substring(0, 150); // Use first part of description for context
 
     const withTextPrompts = [
-        `Edite esta imagem para criar um anúncio de marketing. Adicione o slogan '${slogan}' de forma elegante, com tipografia profissional e de alta classe.`,
-        `Transforme esta imagem em um banner promocional. O texto '${slogan}' deve ser o foco, com grande impacto visual. Mantenha o produto como estrela principal.`,
-        `Crie um post para redes sociais a partir desta foto. Integre o texto '${slogan}' de forma criativa na composição. Estilo moderno e limpo.`,
-        `Ajuste esta imagem para ser a capa de um site. Posicione o slogan '${slogan}' em uma área que não cubra detalhes importantes do produto.`,
-        `Gere um gráfico para e-mail marketing a partir desta imagem. O texto '${slogan}' deve funcionar como uma chamada para ação (call-to-action).`,
+      `Banner de marketing para e-commerce para um "${productName}". O banner destaca o produto com o slogan "${slogan}" em uma fonte elegante e ousada. Iluminação de estúdio, fotografia profissional.`,
+      `Anúncio vibrante para redes sociais para "${productName}". O produto está em destaque. O texto "${slogan}" está integrado criativamente no design.`,
+      `Imagem de herói para um site de e-commerce, apresentando "${productName}". O slogan "${slogan}" está sobreposto em um canto. Estilo cinematográfico.`,
+      `Design de banner promocional para "${productName}". Foco no produto com o texto "${slogan}" em destaque. Cores brilhantes e atraentes.`,
+      `Uma imagem de marketing de luxo para "${productName}". O slogan "${slogan}" aparece em uma tipografia minimalista. Fundo sofisticado.`
     ];
 
     const cleanPrompts = [
-        `Edite esta imagem: isole o produto principal e coloque-o em um fundo branco infinito, limpo, de estúdio. A iluminação deve ser perfeita, como em um e-commerce profissional. Remova qualquer distração.`,
-        `Refine esta imagem para um catálogo. Isole o produto e coloque-o em um fundo cinza claro e neutro. Adicione uma sombra suave e realista para dar profundidade.`,
-        `Otimize esta foto para marketplaces: recorte o produto e coloque-o em um fundo totalmente branco (#FFFFFF), sem sombras ou reflexos.`,
-        `Faça um close-up do produto nesta imagem, mantendo o fundo branco. O objetivo é mostrar a qualidade do material e a textura em detalhes.`,
-        `Limpe o fundo desta imagem, deixando-o completamente branco. Ajuste o brilho e contraste do produto para que ele se destaque.`,
+        `Fotografia de produto profissional para e-commerce de um "${productName}". O produto está centralizado em um fundo branco limpo e sólido. Iluminação de estúdio perfeita, foco nítido, alta resolução.`,
+        `Foto de estúdio de um "${productName}" em um fundo cinza claro. Iluminação suave e uniforme, sem sombras fortes. Imagem pronta para marketplace.`,
+        `Imagem de produto minimalista de um "${productName}". O produto está sobre uma superfície de mármore branco. Foco total nos detalhes do produto.`,
+        `Foto de produto de alta qualidade de "${productName}" isolado em um fundo branco puro.`,
+        `Visão detalhada (close-up) de um "${productName}". Fundo neutro. Foco na textura e nos materiais do produto.`
     ];
 
     const modernPrompts = [
-        `Recrie esta cena com um estilo moderno. Coloque o produto sobre uma superfície de mármore ou concreto, com um fundo de gradiente suave. Conceito de luxo.`,
-        `Edite esta imagem para que o produto pareça estar levitando sobre um fundo de cor sólida e vibrante. Adicione uma sombra sutil abaixo dele para realismo.`,
-        `Dê um toque de design a esta foto. Adicione elementos gráficos geométricos (círculos, linhas) que complementem o formato do produto.`,
-        `Crie uma composição artística com o produto. Use reflexos na superfície e sombras longas e dramáticas para um clima elegante e sofisticado.`,
-        `Altere o ambiente desta foto para um cenário minimalista de estilo de vida, que tenha relação com o uso do produto. Use iluminação natural e desfoque o fundo.`,
+        `Foto de estilo de vida (lifestyle) apresentando "${productName}". O produto é mostrado em um ambiente moderno e elegante relevante para seu uso. Iluminação natural suave, profundidade de campo rasa.`,
+        `Composição artística com "${productName}". O produto está em um pedestal, cercado por elementos que complementam seu design. Iluminação dramática.`,
+        `"${productName}" em uma cena surreal com elementos flutuantes e um fundo de gradiente suave. Fotografia conceitual.`,
+        `Uma foto de cima (flat lay) com "${productName}" arranjado com outros objetos de design em uma superfície de madeira.`,
+        `Foto de ação mostrando "${productName}" em uso. A imagem transmite energia e movimento. Ambiente relevante: ${content.category}.`
     ];
     
-    // Pass the original image to each generation call
-    const withTextPromises = withTextPrompts.map(p => generateSingleImage(p, originalImage));
-    const cleanPromises = cleanPrompts.map(p => generateSingleImage(p, originalImage));
-    const modernPromises = modernPrompts.map(p => generateSingleImage(p, originalImage));
+    const withTextPromises = withTextPrompts.map(p => generateImage(p));
+    const cleanPromises = cleanPrompts.map(p => generateImage(p));
+    const modernPromises = modernPrompts.map(p => generateImage(p));
 
     const [withText, clean, modern] = await Promise.all([
         Promise.all(withTextPromises),
@@ -203,9 +190,10 @@ export const generateProductImages = async (content: ProductContent, originalIma
         Promise.all(modernPromises),
     ]);
     
+    // Return arrays including nulls for failed generations so the UI can show a failure state.
     return { 
-        withText: withText.filter((img): img is string => !!img), 
-        clean: clean.filter((img): img is string => !!img), 
-        modern: modern.filter((img): img is string => !!img) 
+        withText, 
+        clean, 
+        modern
     };
 };
