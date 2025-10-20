@@ -22,7 +22,6 @@ export interface ProductContent {
 }
 
 export interface GeneratedImageSet {
-  withText: (string | null)[];
-  clean: (string | null)[];
-  modern: (string | null)[];
+  creativeTextAd: (string | null)[];
+  optimized4K: (string | null)[];
 }

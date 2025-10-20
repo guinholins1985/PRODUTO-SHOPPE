@@ -10,14 +10,14 @@ export type GenerationStep = 'idle' | 'content' | 'images' | 'error' | 'done';
 const App: React.FC = () => {
   const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
   const [productContent, setProductContent] = useState<ProductContent | null>(null);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({ withText: [], clean: [], modern: [] });
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({ creativeTextAd: [], optimized4K: [] });
   const [error, setError] = useState<string | null>(null);
   const [originalImagePreview, setOriginalImagePreview] = useState<string | null>(null);
 
   const handleGenerate = async (image: File | null, title: string, url: string) => {
     // Reset state for a new generation
     setProductContent(null);
-    setGeneratedImages({ withText: [], clean: [], modern: [] });
+    setGeneratedImages({ creativeTextAd: [], optimized4K: [] });
     setError(null);
     setGenerationStep('content');
     
@@ -36,10 +36,10 @@ const App: React.FC = () => {
       const content = await generateProductContent(image, title, url);
       setProductContent(content);
 
-      // 2. Generate new Product Images from the generated content, if an image was initially provided to trigger the flow
+      // 2. Generate edited Product Images from the uploaded image and generated content
       if (image) {
         setGenerationStep('images');
-        const images = await generateProductImages(content);
+        const images = await generateProductImages(image, content);
         setGeneratedImages(images);
       }
 

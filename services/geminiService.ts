@@ -126,74 +126,72 @@ export const generateProductContent = async (image: File | null, title: string, 
 
 
 /**
- * Generates a set of new marketing images for a product using a text-to-image model.
+ * Generates an edited marketing image from a base image and a text prompt.
+ * @param originalImage The original product image file.
+ * @param prompt The editing instruction.
+ * @returns A promise that resolves to a base64 encoded image string or null if generation fails.
+ */
+const editImage = async (originalImage: File, prompt: string): Promise<string | null> => {
+    try {
+        const imagePart = await fileToGenerativePart(originalImage);
+        const textPart = { text: prompt };
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: [{ parts: [imagePart, textPart] }],
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+
+        // Robustly parse the response to find the image data
+        const imageResponsePart = response.candidates?.[0]?.content?.parts?.find(
+            (part) => part.inlineData?.mimeType.startsWith('image/')
+        );
+
+        if (imageResponsePart && imageResponsePart.inlineData) {
+            const base64ImageBytes = imageResponsePart.inlineData.data;
+            const mimeType = imageResponsePart.inlineData.mimeType;
+            return `data:${mimeType};base64,${base64ImageBytes}`;
+        } else {
+            console.error("Image generation failed: No image data found in response.", { prompt });
+            return null;
+        }
+
+    } catch (error) {
+        console.error(`Image editing failed for prompt: "${prompt}"`, error);
+        return null;
+    }
+};
+
+
+/**
+ * Generates a set of edited marketing images for a product.
+ * @param image The original product image file.
  * @param content The product content, used for context in prompts.
  * @returns A promise that resolves to a GeneratedImageSet.
  */
-export const generateProductImages = async (content: ProductContent): Promise<GeneratedImageSet> => {
-    
-    // Helper function to generate a single image and return its base64 string.
-    const generateImage = async (prompt: string): Promise<string | null> => {
-        try {
-            const response = await ai.models.generateImages({
-                model: 'imagen-4.0-generate-001',
-                prompt: prompt,
-                config: {
-                    numberOfImages: 1,
-                    outputMimeType: 'image/jpeg',
-                    aspectRatio: '1:1',
-                },
-            });
-            const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-            return `data:image/jpeg;base64,${base64ImageBytes}`;
-        } catch (error) {
-            console.error(`Image generation failed for prompt: "${prompt}"`, error);
-            return null;
-        }
-    };
+export const generateProductImages = async (image: File, content: ProductContent): Promise<GeneratedImageSet> => {
+    const slogan = content.promotionalSlogan || content.name;
 
-    const slogan = content.promotionalSlogan || 'Oferta Imperdível';
-    const productName = content.name;
-    const productDescription = content.description.substring(0, 150); // Use first part of description for context
-
-    const withTextPrompts = [
-      `Banner de marketing para e-commerce para um "${productName}". O banner destaca o produto com o slogan "${slogan}" em uma fonte elegante e ousada. Iluminação de estúdio, fotografia profissional.`,
-      `Anúncio vibrante para redes sociais para "${productName}". O produto está em destaque. O texto "${slogan}" está integrado criativamente no design.`,
-      `Imagem de herói para um site de e-commerce, apresentando "${productName}". O slogan "${slogan}" está sobreposto em um canto. Estilo cinematográfico.`,
-      `Design de banner promocional para "${productName}". Foco no produto com o texto "${slogan}" em destaque. Cores brilhantes e atraentes.`,
-      `Uma imagem de marketing de luxo para "${productName}". O slogan "${slogan}" aparece em uma tipografia minimalista. Fundo sofisticado.`
+    const creativeTextAdPrompts = [
+      `Adicione o slogan "${slogan}" a esta imagem de forma criativa e magnética. Use uma tipografia premium que combine com o produto. A composição deve ser limpa e profissional, como um anúncio de revista.`,
     ];
 
-    const cleanPrompts = [
-        `Fotografia de produto profissional para e-commerce de um "${productName}". O produto está centralizado em um fundo branco limpo e sólido. Iluminação de estúdio perfeita, foco nítido, alta resolução.`,
-        `Foto de estúdio de um "${productName}" em um fundo cinza claro. Iluminação suave e uniforme, sem sombras fortes. Imagem pronta para marketplace.`,
-        `Imagem de produto minimalista de um "${productName}". O produto está sobre uma superfície de mármore branco. Foco total nos detalhes do produto.`,
-        `Foto de produto de alta qualidade de "${productName}" isolado em um fundo branco puro.`,
-        `Visão detalhada (close-up) de um "${productName}". Fundo neutro. Foco na textura e nos materiais do produto.`
-    ];
-
-    const modernPrompts = [
-        `Foto de estilo de vida (lifestyle) apresentando "${productName}". O produto é mostrado em um ambiente moderno e elegante relevante para seu uso. Iluminação natural suave, profundidade de campo rasa.`,
-        `Composição artística com "${productName}". O produto está em um pedestal, cercado por elementos que complementam seu design. Iluminação dramática.`,
-        `"${productName}" em uma cena surreal com elementos flutuantes e um fundo de gradiente suave. Fotografia conceitual.`,
-        `Uma foto de cima (flat lay) com "${productName}" arranjado com outros objetos de design em uma superfície de madeira.`,
-        `Foto de ação mostrando "${productName}" em uso. A imagem transmite energia e movimento. Ambiente relevante: ${content.category}.`
+    const optimized4KPrompts = [
+        `Otimize esta imagem para qualidade 4K. Remova o fundo e substitua por um fundo de estúdio profissional com iluminação suave. Aumente a nitidez e os detalhes do produto para um visual ultra-realista e de alta resolução.`,
     ];
     
-    const withTextPromises = withTextPrompts.map(p => generateImage(p));
-    const cleanPromises = cleanPrompts.map(p => generateImage(p));
-    const modernPromises = modernPrompts.map(p => generateImage(p));
+    const creativeTextAdPromises = creativeTextAdPrompts.map(p => editImage(image, p));
+    const optimized4KPromises = optimized4KPrompts.map(p => editImage(image, p));
 
-    const [withText, clean, modern] = await Promise.all([
-        Promise.all(withTextPromises),
-        Promise.all(cleanPromises),
-        Promise.all(modernPromises),
+    const [creativeTextAd, optimized4K] = await Promise.all([
+        Promise.all(creativeTextAdPromises),
+        Promise.all(optimized4KPromises),
     ]);
     
-    // Return arrays including nulls for failed generations so the UI can show a failure state.
     return { 
-        withText, 
-        clean, 
-        modern
+        creativeTextAd, 
+        optimized4K,
     };
 };
