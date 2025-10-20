@@ -43,51 +43,85 @@ const TEMPLATES = [
 const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [baseImage, setBaseImage] = useState<HTMLImageElement | null>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 512, height: 512 });
   const [texts, setTexts] = useState<TextObject[]>([]);
   const [logo, setLogo] = useState<LogoObject | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<HTMLImageElement | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<number | null>(null);
 
-  const draw = useCallback(() => {
+  // Effect to load the base image and set canvas size
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = imageSrc;
+    img.onload = () => {
+      const MAX_DIMENSION = 768;
+      let { width, height } = img;
+
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width > height) {
+          height = (height * MAX_DIMENSION) / width;
+          width = MAX_DIMENSION;
+        } else {
+          width = (width * MAX_DIMENSION) / height;
+          height = MAX_DIMENSION;
+        }
+      }
+      setCanvasSize({ width: Math.round(width), height: Math.round(height) });
+      setBaseImage(img);
+    };
+    img.onerror = () => {
+      console.error("Failed to load image for editor.");
+    }
+  }, [imageSrc]);
+
+
+  const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas) return;
+    if (!ctx || !canvas || !baseImage) return;
 
+    // Clear canvas before drawing
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const baseImage = new Image();
-    baseImage.crossOrigin = 'anonymous';
-    baseImage.src = imageSrc;
-    baseImage.onload = () => {
-      ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
-      
-      if (activeTemplate) {
-        ctx.drawImage(activeTemplate, 0, 0, canvas.width, canvas.height);
-      }
 
-      texts.forEach(t => {
-        ctx.font = `${t.size}px Arial`;
-        ctx.fillStyle = t.color;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(t.text, t.x, t.y);
-      });
+    // Draw base image
+    ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+    
+    // Draw template overlay
+    if (activeTemplate) {
+      ctx.drawImage(activeTemplate, 0, 0, canvas.width, canvas.height);
+    }
 
-      if (logo) {
-        ctx.drawImage(logo.image, logo.x, logo.y, logo.width, logo.height);
-      }
-    };
-  }, [imageSrc, texts, logo, activeTemplate]);
+    // Draw text objects
+    texts.forEach(t => {
+      ctx.font = `${t.size}px Arial`;
+      ctx.fillStyle = t.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(t.text, t.x, t.y);
+    });
 
+    // Draw logo
+    if (logo) {
+      ctx.drawImage(logo.image, logo.x, logo.y, logo.width, logo.height);
+    }
+  }, [baseImage, texts, logo, activeTemplate]);
+
+  // Effect to redraw canvas whenever its contents change
   useEffect(() => {
-    draw();
-  }, [draw]);
+    if (baseImage) {
+        drawCanvas();
+    }
+  }, [drawCanvas, canvasSize, baseImage]);
+
 
   const addText = () => {
     const newText: TextObject = {
       id: Date.now(),
       text: slogan || 'Seu Texto Aqui',
-      x: (canvasRef.current?.width || 0) / 2,
-      y: (canvasRef.current?.height || 0) / 2,
+      x: canvasSize.width / 2,
+      y: canvasSize.height / 2,
       color: '#FFFFFF',
       size: 40,
       isDragging: false,
@@ -105,8 +139,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) 
         const img = new Image();
         img.onload = () => {
           const aspectRatio = img.width / img.height;
-          const canvasWidth = canvasRef.current?.width || 512;
-          const newWidth = canvasWidth * 0.25; // 25% of canvas width
+          const newWidth = canvasSize.width * 0.25; // 25% of canvas width
           setLogo({
             image: img,
             x: 20,
@@ -140,8 +173,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     let foundText = false;
     setTexts(texts.map(t => {
@@ -164,8 +199,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     setTexts(texts.map(t => t.isDragging ? { ...t, x: x - t.offsetX, y: y - t.offsetY } : t));
     if (logo?.isDragging) {
@@ -243,8 +280,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) 
         <div className="flex-1 flex items-center justify-center bg-gray-900 rounded-lg p-2">
             <canvas
               ref={canvasRef}
-              width={512}
-              height={512}
+              width={canvasSize.width}
+              height={canvasSize.height}
               className="max-w-full max-h-full object-contain cursor-grab"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}

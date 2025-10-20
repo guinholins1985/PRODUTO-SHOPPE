@@ -26,6 +26,19 @@ const useCopyToClipboard = (text: string) => {
   return { copied, copy };
 };
 
+const SuggestionItem: React.FC<{ text: string }> = ({ text }) => {
+  const { copied, copy } = useCopyToClipboard(text);
+  return (
+    <li className="relative flex items-center p-3 pl-4 pr-12 bg-gray-900 border border-gray-700 rounded-lg">
+      <span className="text-gray-300 text-sm">{text}</span>
+      <button onClick={copy} className="absolute right-2 p-2 text-gray-400 hover:text-white transition">
+        {copied ? <CheckIcon className="w-5 h-5 text-green-500" /> : <CopyIcon className="w-5 h-5" />}
+      </button>
+    </li>
+  );
+};
+
+
 const EditableField: React.FC<{ label: string; value: string; isTextarea?: boolean, type?: string }> = ({ label, value, isTextarea = false, type = 'text' }) => {
   const [currentValue, setCurrentValue] = useState(value);
   const { copied, copy } = useCopyToClipboard(currentValue);
@@ -70,7 +83,7 @@ const ImageResult: React.FC<{
         <img
           src={imageSrc}
           alt={title}
-          className="aspect-square w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity mb-2 border-2 border-transparent hover:border-indigo-500"
+          className="aspect-square w-full object-contain rounded-md cursor-pointer hover:opacity-80 transition-opacity mb-2 border-2 border-transparent hover:border-indigo-500"
           onClick={() => onImageClick(imageSrc)}
         />
       ) : (
@@ -230,7 +243,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
 
         <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
             <h3 className="text-lg font-semibold text-gray-300">Imagem de Marketing (IA)</h3>
-            <p className="text-sm text-gray-400 -mt-3">Uma nova imagem do seu produto, gerada e otimizada pela IA para marketing.</p>
+            <p className="text-sm text-gray-400 -mt-3">Uma nova imagem do seu produto, gerada pela IA, sem texto e otimizada para marketing.</p>
         
             <div className="max-w-md mx-auto">
                 {(areImagesLoading || generatedImage) ? (
@@ -246,6 +259,19 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
                     </div>
                 )}
             </div>
+        </div>
+
+        <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-300 mb-4">Sugestões de Texto para Imagem</h3>
+          {content.imageTextSuggestions && content.imageTextSuggestions.length > 0 ? (
+            <ul className="space-y-3">
+              {content.imageTextSuggestions.map((suggestion, index) => (
+                <SuggestionItem key={index} text={suggestion} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">Nenhuma sugestão de texto foi gerada.</p>
+          )}
         </div>
         
         <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">

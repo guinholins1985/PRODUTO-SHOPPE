@@ -19,6 +19,7 @@ export interface ProductContent {
   dimensions?: string; // "L x W x H cm"
   promotionalSlogan?: string;
   generatedImages?: string[];
+  imageTextSuggestions?: string[];
 }
 
 /**

@@ -48,8 +48,13 @@ const productContentSchema = {
     weight: { type: Type.NUMBER, description: 'Peso estimado do produto em quilogramas (kg) para cálculo de frete. Use apenas números.' },
     dimensions: { type: Type.STRING, description: 'Dimensões estimadas da embalagem no formato "C x L x A cm", ex: "25 x 15 x 10 cm".' },
     promotionalSlogan: { type: Type.STRING, description: 'Um slogan promocional curto e cativante para o produto (máximo 10 palavras).' },
+    imageTextSuggestions: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Gere uma lista com EXATAMENTE 10 sugestões de textos curtos e otimizados para usar em imagens de marketing. Os textos devem ser chamativos, de alto valor comercial e persuasivos. Ex: "Frete Grátis Hoje!", "50% OFF", "Edição Limitada".'
+    },
   },
-  required: ['name', 'description', 'category', 'price', 'keywords', 'variations', 'promotionalSlogan']
+  required: ['name', 'description', 'category', 'price', 'keywords', 'variations', 'promotionalSlogan', 'imageTextSuggestions']
 };
 
 /**
@@ -85,9 +90,9 @@ export const generateProductContent = async (image: File | null, title: string, 
   let prompt = '';
   
   if (url) {
-    prompt = `Como um especialista em marketing de e-commerce, sua tarefa é criar um anúncio de produto completo e persuasivo em Português do Brasil.
+    prompt = `Como um especialista em marketing de e-commerce e redator profissional, nativo do Brasil, sua tarefa é criar um anúncio de produto completo, persuasivo e ortograficamente impecável em Português do Brasil. Utilize um dicionário abrangente da língua portuguesa para garantir a precisão lexical, a riqueza do vocabulário e a naturalidade da linguagem. A coerência e a qualidade da escrita são fundamentais.
     Use a ferramenta de busca do Google para analisar profundamente o conteúdo do link de referência fornecido (${url}) e extraia todas as informações relevantes.
-    Com base na análise, gere um JSON que corresponda EXATAMENTE ao seguinte schema. O JSON DEVE estar dentro de um bloco de código markdown (e.g., \`\`\`json ... \`\`\`):
+    Com base na análise, gere um JSON que corresponda EXATAMENTE ao seguinte schema. Todos os textos gerados (nomes, descrições, slogans) devem ser revisados para garantir que não contenham erros gramaticais ou de digitação. O JSON DEVE estar dentro de um bloco de código markdown (e.g., \`\`\`json ... \`\`\`):
     Schema: ${JSON.stringify(productContentSchema, null, 2)}`;
     
     if (title) {
@@ -98,9 +103,9 @@ export const generateProductContent = async (image: File | null, title: string, 
     parts.push({ text: prompt });
 
   } else {
-    prompt = `Como um especialista em marketing de e-commerce, sua tarefa é criar um anúncio de produto completo e persuasivo em Português do Brasil.
+    prompt = `Como um especialista em marketing de e-commerce e redator profissional, nativo do Brasil, sua tarefa é criar um anúncio de produto completo, persuasivo e ortograficamente impecável em Português do Brasil. Utilize um dicionário abrangente da língua portuguesa para garantir a precisão lexical, a riqueza do vocabulário e a naturalidade da linguagem.
     Analise a imagem e as palavras-chave fornecidas e gere um JSON estruturado com todas as informações necessárias para um cadastro de alta conversão.
-    Seja criativo e focado em vendas.`;
+    Seja criativo, focado em vendas, e garanta que todos os textos gerados (nomes, descrições, slogans) sejam revisados para garantir que não contenham erros gramaticais ou de digitação.`;
     
     if (title) {
       prompt += `\n\nPalavras-chave do usuário para guiar a criação: ${title}`;
@@ -143,6 +148,7 @@ export const generateProductContent = async (image: File | null, title: string, 
 
         parsedJson.keywords = parsedJson.keywords || [];
         parsedJson.variations = parsedJson.variations || [];
+        parsedJson.imageTextSuggestions = parsedJson.imageTextSuggestions || [];
 
         return parsedJson;
     } catch (parseError) {
@@ -164,7 +170,7 @@ export const generateProductImages = async (image: File, content: ProductContent
   try {
     const imagePart = await fileToGenerativePart(image);
     
-    const generationPrompt = `Use a imagem fornecida como referência. Gere uma nova foto de produto profissional para e-commerce. A nova imagem deve ter iluminação de estúdio, um fundo de cor sólida e neutra que destaque o produto, e o produto deve estar em foco e nítido. Mantenha o produto idêntico ao original, sem adicionar ou remover elementos.`;
+    const generationPrompt = `Use a imagem fornecida como referência para gerar uma nova foto de produto profissional para e-commerce. A nova imagem deve ter iluminação de estúdio, um fundo de cor sólida e neutra que destaque o produto, e manter o produto em si idêntico ao original. O resultado deve ser uma imagem de alta qualidade, limpa e pronta para ser usada em um anúncio, sem nenhum texto adicionado.`;
 
     const response = await withRetry(async () => {
       const result = await ai.models.generateContent({
