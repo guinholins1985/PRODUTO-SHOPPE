@@ -59,7 +59,32 @@ const SkeletonLoader: React.FC<{ className?: string }> = ({ className = 'h-4' })
   <div className={`bg-gray-700 rounded animate-pulse ${className}`}></div>
 );
 
-const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, error, generatedImages }) => {
+const ImageResult: React.FC<{
+  title: string;
+  imageSrc: string | null;
+  isLoading: boolean;
+  onImageClick: (src: string) => void;
+}> = ({ title, imageSrc, isLoading, onImageClick }) => {
+  return (
+    <div className="text-center">
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt={title}
+          className="aspect-square w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity mb-2 border-2 border-transparent hover:border-indigo-500"
+          onClick={() => onImageClick(imageSrc)}
+        />
+      ) : (
+        <div className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-center text-xs text-gray-500 p-2">
+          {isLoading ? 'Gerando...' : 'Falha na Geração'}
+        </div>
+      )}
+      <h4 className="text-sm font-semibold text-gray-400">{title}</h4>
+    </div>
+  );
+};
+
+const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, error, originalImagePreview, generatedImages }) => {
   const [variations, setVariations] = useState<ProductVariation[]>([]);
   const [editorConfig, setEditorConfig] = useState<{isOpen: boolean; image: string | null}>({isOpen: false, image: null});
 
@@ -93,6 +118,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
 
   const renderContent = () => {
     const isLoading = generationStep === 'content' || generationStep === 'images';
+    const areImagesLoading = generationStep === 'images';
 
     if (isLoading && !content) {
       return (
@@ -117,8 +143,13 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
 
             <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
                  <SkeletonLoader className="h-5 w-1/3 mb-3" />
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    {[...Array(2)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
+                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i}>
+                            <SkeletonLoader className="aspect-square w-full mb-2" />
+                            <SkeletonLoader className="h-4 w-3/4 mx-auto" />
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
@@ -198,60 +229,30 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
             </div>
         </div>
 
-        <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-6">
+        <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
             <h3 className="text-lg font-semibold text-gray-300">Imagens de Marketing (IA)</h3>
-             <p className="text-sm text-gray-400 -mt-4">Imagens geradas automaticamente. Clique em uma para editar.</p>
-          
-            {generationStep === 'images' && (
-                <div className="space-y-4 animate-pulse">
-                    <div>
-                        <h4 className="text-md font-semibold text-gray-400 mb-2">Anúncio com Texto Criativo</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                            {[...Array(1)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
-                        </div>
+            <p className="text-sm text-gray-400 -mt-3">Sua imagem original e 5 modelos otimizados pela IA.</p>
+        
+            {originalImagePreview ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {/* Slot 1: Original */}
+                    <div className="text-center">
+                        <img 
+                            src={originalImagePreview} 
+                            alt="Produto Original" 
+                            className="aspect-square w-full object-cover rounded-md mb-2 border-2 border-transparent"
+                        />
+                        <h4 className="text-sm font-semibold text-gray-400">Original</h4>
                     </div>
-                    <div>
-                        <h4 className="text-md font-semibold text-gray-400 mb-2">Imagem Otimizada (Qualidade 4K)</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                            {[...Array(1)].map((_, i) => <SkeletonLoader key={i} className="aspect-square w-full" />)}
-                        </div>
-                    </div>
+                    {/* The 5 Generated slots */}
+                    <ImageResult title="Remasterizada" imageSrc={generatedImages.remastered} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
+                    <ImageResult title="Fundo de Estúdio" imageSrc={generatedImages.studio} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
+                    <ImageResult title="Anúncio com Texto" imageSrc={generatedImages.infographic} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
+                    <ImageResult title="Cenário Realista" imageSrc={generatedImages.lifestyle} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
+                    <ImageResult title="Iluminação Dramática" imageSrc={generatedImages.dramatic} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
                 </div>
-            )}
-            {generatedImages.creativeTextAd.length > 0 && (
-                <div className="space-y-6">
-                    <div>
-                        <h4 className="text-md font-semibold text-gray-400 mb-3">Anúncio com Texto Criativo</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                            {generatedImages.creativeTextAd.map((img, index) => img ? (
-                                <img 
-                                    key={`creative-text-${index}`}
-                                    src={img}
-                                    alt={`Anúncio com texto criativo ${index + 1}`}
-                                    className="aspect-square w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                                    onClick={() => setEditorConfig({isOpen: true, image: img})}
-                                />
-                            ) : <div key={`creative-text-${index}`} className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-xs text-gray-500">Falha</div>)}
-                        </div>
-                    </div>
-                     <div>
-                        <h4 className="text-md font-semibold text-gray-400 mb-3">Imagem Otimizada (Qualidade 4K)</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                            {generatedImages.optimized4K.map((img, index) => img ? (
-                                <img 
-                                    key={`optimized-${index}`}
-                                    src={img}
-                                    alt={`Imagem otimizada ${index + 1}`}
-                                    className="aspect-square w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                                    onClick={() => setEditorConfig({isOpen: true, image: img})}
-                                />
-                            ) : <div key={`optimized-${index}`} className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-xs text-gray-500">Falha</div>)}
-                        </div>
-                    </div>
-                </div>
-            )}
-            {generatedImages.creativeTextAd.length === 0 && generationStep !== 'images' && (
-              <p className="text-sm text-gray-500 text-center py-4">As imagens aparecerão aqui após a geração do conteúdo.</p>
+            ) : (
+                 <p className="text-sm text-gray-500 text-center py-4">Nenhuma imagem para exibir. Envie uma imagem para gerar as versões de marketing.</p>
             )}
         </div>
         

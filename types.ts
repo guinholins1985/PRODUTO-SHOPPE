@@ -21,7 +21,14 @@ export interface ProductContent {
   generatedImages?: string[];
 }
 
+/**
+ * Represents the 5 distinct, edited images generated from the user's original photo.
+ * Each property corresponds to a specific editing style.
+ */
 export interface GeneratedImageSet {
-  creativeTextAd: (string | null)[];
-  optimized4K: (string | null)[];
+  remastered: string | null;
+  studio: string | null;
+  lifestyle: string | null;
+  infographic: string | null;
+  dramatic: string | null;
 }

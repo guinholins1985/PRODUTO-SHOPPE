@@ -10,14 +10,20 @@ export type GenerationStep = 'idle' | 'content' | 'images' | 'error' | 'done';
 const App: React.FC = () => {
   const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
   const [productContent, setProductContent] = useState<ProductContent | null>(null);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({ creativeTextAd: [], optimized4K: [] });
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({
+    remastered: null,
+    studio: null,
+    lifestyle: null,
+    infographic: null,
+    dramatic: null,
+  });
   const [error, setError] = useState<string | null>(null);
   const [originalImagePreview, setOriginalImagePreview] = useState<string | null>(null);
 
   const handleGenerate = async (image: File | null, title: string, url: string) => {
     // Reset state for a new generation
     setProductContent(null);
-    setGeneratedImages({ creativeTextAd: [], optimized4K: [] });
+    setGeneratedImages({ remastered: null, studio: null, lifestyle: null, infographic: null, dramatic: null });
     setError(null);
     setGenerationStep('content');
     
