@@ -5,6 +5,16 @@ export interface ProductVariation {
   price?: number;
 }
 
+export interface VideoScene {
+  scene: string;
+  description: string;
+}
+
+export interface VideoScript {
+  title: string;
+  scenes: VideoScene[];
+}
+
 export interface ProductContent {
   name: string;
   description: string;
@@ -21,6 +31,17 @@ export interface ProductContent {
   generatedImages?: string[];
   imageTextSuggestions?: string[];
   imageTextPlacementSuggestions?: string;
+  hashtags?: string[];
+  coupon?: {
+    code: string;
+    phrase: string;
+  };
+  metaTitle?: string;
+  metaDescription?: string;
+  slug?: string;
+  imageAltText?: string;
+  socialMediaPost?: string;
+  videoScript?: VideoScript;
 }
 
 /**

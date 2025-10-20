@@ -235,9 +235,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) 
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose} style={{ backdropFilter: 'blur(8px)' }}>
-      <div className="bg-gray-800 rounded-lg shadow-2xl flex flex-col md:flex-row gap-4 p-4 max-w-6xl w-full max-h-[95vh]" onClick={e => e.stopPropagation()}>
+      <div className="bg-gray-800 rounded-lg shadow-2xl flex flex-col md:flex-row gap-4 p-4 max-w-6xl w-full max-h-[95vh] overflow-y-auto md:overflow-y-hidden" onClick={e => e.stopPropagation()}>
         {/* Controls */}
-        <div className="w-full md:w-80 bg-gray-900 p-4 rounded-lg space-y-4 overflow-y-auto">
+        <div className="w-full md:w-80 bg-gray-900 p-4 rounded-lg space-y-4 flex-shrink-0 flex flex-col">
+          <div className="flex-grow space-y-4 overflow-y-auto">
             <h3 className="text-xl font-bold">Editor de Imagem</h3>
             
             <div className="space-y-2">
@@ -248,7 +249,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) 
 
             <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">Templates</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-4 sm:grid-cols-2 md:grid-cols-2 gap-2">
                     {TEMPLATES.map(t => (
                         <button key={t.name} onClick={() => handleTemplateChange(t.src)} className="aspect-square bg-gray-700 rounded-md hover:ring-2 ring-indigo-500 transition flex items-center justify-center text-xs p-1">
                             {t.src ? <img src={t.src} alt={t.name} className="object-contain max-h-full" /> : <span>Nenhum</span>}
@@ -270,14 +271,15 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) 
                     <button onClick={() => { setTexts(texts.filter(t => t.id !== selectedTextId)); setSelectedTextId(null); }} className="w-full text-sm text-red-400 hover:text-red-300">Remover Texto</button>
                 </div>
             )}
+            </div>
             
-            <div className="!mt-auto pt-4 border-t border-gray-700">
+            <div className="flex-shrink-0 pt-4 border-t border-gray-700">
                 <button onClick={handleDownload} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition"> <DownloadIcon className="w-4 h-4" /> Baixar Imagem</button>
             </div>
         </div>
 
         {/* Canvas */}
-        <div className="flex-1 flex items-center justify-center bg-gray-900 rounded-lg p-2">
+        <div className="flex-1 flex items-center justify-center bg-gray-900 rounded-lg p-2 min-h-[300px] md:min-h-0">
             <canvas
               ref={canvasRef}
               width={canvasSize.width}

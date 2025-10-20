@@ -1,12 +1,10 @@
 import React, { useState, useRef, useCallback } from 'react';
 import UploadIcon from './icons/UploadIcon';
 import SparklesIcon from './icons/SparklesIcon';
-import ImageIcon from './icons/ImageIcon';
-import LinkIcon from './icons/LinkIcon';
 import { GenerationStep } from '../App';
 
 interface ProductInputProps {
-  onGenerate: (image: File | null, title: string, url: string) => void;
+  onGenerate: (image: File | null, title: string) => void;
   generationStep: GenerationStep;
 }
 
@@ -72,11 +70,9 @@ const resizeImage = (file: File, maxDimension: number): Promise<File> => {
 
 
 const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep }) => {
-  const [inputType, setInputType] = useState<'image' | 'link'>('image');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('');
-  const [url, setUrl] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,7 +94,7 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
         reader.readAsDataURL(resizedFile);
         
         // Automatically trigger content generation on file upload.
-        onGenerate(resizedFile, title, '');
+        onGenerate(resizedFile, title);
 
       } catch (error) {
         console.error("Error resizing image:", error);
@@ -125,19 +121,11 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputType === 'image' && !imageFile && !title) {
+    if (!imageFile && !title) {
       alert('Por favor, envie uma imagem ou digite um título.');
       return;
     }
-    if (inputType === 'link' && !url) {
-      alert('Por favor, insira um link do produto.');
-      return;
-    }
-    onGenerate(
-        inputType === 'image' ? imageFile : null, 
-        title, 
-        inputType === 'link' ? url : ''
-    );
+    onGenerate(imageFile, title);
   };
 
   const getButtonText = () => {
@@ -145,73 +133,42 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
     if (generationStep === 'images') return 'Gerando Imagens...';
     return 'Gerar Conteúdo';
   }
-  
-  const tabBaseClasses = "flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors focus:outline-none";
-  const activeTabClasses = "bg-gray-700/50 text-white";
-  const inactiveTabClasses = "text-gray-400 hover:bg-gray-700/30 hover:text-gray-200";
 
   return (
-    <div className="w-full lg:w-1/2 p-6 bg-gray-800/50 rounded-2xl border border-gray-700 backdrop-blur-sm self-start sticky top-8">
-      <h2 className="text-2xl font-bold mb-4 text-gray-100">1. Forneça os Detalhes do Produto</h2>
+    <div className="w-full lg:w-1/2 p-4 sm:p-6 bg-gray-800/50 rounded-2xl border border-gray-700 backdrop-blur-sm self-start lg:sticky lg:top-32">
+      <h2 className="text-xl sm:text-2xl font-bold mb-4 text-gray-100">1. Forneça os Detalhes</h2>
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        <div className="flex bg-gray-900/70 p-1 rounded-lg border border-gray-700">
-            <button type="button" onClick={() => setInputType('image')} className={`${tabBaseClasses} rounded-l-md ${inputType === 'image' ? activeTabClasses : inactiveTabClasses}`}>
-                <ImageIcon className="w-5 h-5"/> Gerar de Imagem
-            </button>
-             <button type="button" onClick={() => setInputType('link')} className={`${tabBaseClasses} rounded-r-md ${inputType === 'link' ? activeTabClasses : inactiveTabClasses}`}>
-                <LinkIcon className="w-5 h-5"/> Gerar de Link
-            </button>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-2">
+            Faça upload da imagem do produto
+          </label>
+          <div
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`flex justify-center items-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-300 ${isDragging ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-600 hover:border-indigo-500 hover:bg-gray-800'}`}
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => handleFileChange(e.target.files)}
+              className="hidden"
+              accept="image/*"
+            />
+            {imagePreview ? (
+              <img src={imagePreview} alt="Preview" className="h-full w-full object-contain rounded-lg p-2" />
+            ) : (
+              <div className="text-center text-gray-500">
+                <UploadIcon className="mx-auto h-12 w-12" />
+                <p>Arraste e solte ou clique para enviar</p>
+                <p className="text-xs mt-1">A geração começará automaticamente</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {inputType === 'image' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Faça upload da imagem do produto
-              </label>
-              <div
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                onDrop={onDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`flex justify-center items-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-300 ${isDragging ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-600 hover:border-indigo-500 hover:bg-gray-800'}`}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={(e) => handleFileChange(e.target.files)}
-                  className="hidden"
-                  accept="image/*"
-                />
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Preview" className="h-full w-full object-contain rounded-lg p-2" />
-                ) : (
-                  <div className="text-center text-gray-500">
-                    <UploadIcon className="mx-auto h-12 w-12" />
-                    <p>Arraste e solte ou clique para enviar</p>
-                    <p className="text-xs mt-1">A geração começará automaticamente</p>
-                  </div>
-                )}
-              </div>
-            </div>
-        )}
-
-        {inputType === 'link' && (
-             <div>
-              <label htmlFor="url" className="block text-sm font-medium text-gray-400 mb-2">
-                Cole o link do produto ou anúncio
-              </label>
-              <input
-                type="url"
-                id="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://exemplo.com/produto-xyz"
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-              />
-            </div>
-        )}
-        
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-400 mb-2">
             Insira palavras-chave para refinar (opcional)
