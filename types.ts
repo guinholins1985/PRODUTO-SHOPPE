@@ -20,6 +20,7 @@ export interface ProductContent {
   promotionalSlogan?: string;
   generatedImages?: string[];
   imageTextSuggestions?: string[];
+  imageTextPlacementSuggestions?: string;
 }
 
 /**

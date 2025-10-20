@@ -53,8 +53,12 @@ const productContentSchema = {
       items: { type: Type.STRING },
       description: 'Gere uma lista com EXATAMENTE 10 sugestões de textos curtos e otimizados para usar em imagens de marketing. Os textos devem ser chamativos, de alto valor comercial e persuasivos. Ex: "Frete Grátis Hoje!", "50% OFF", "Edição Limitada".'
     },
+    imageTextPlacementSuggestions: {
+        type: Type.STRING,
+        description: `Com base na análise da imagem do produto, forneça um guia passo a passo detalhado e claro sobre como aplicar os textos sugeridos na imagem para máximo impacto. Organize as dicas em etapas numeradas (ex: '1. Posição: ...\\n2. Cores e Contraste: ...\\n3. Tipografia: ...'). Seja específico, sugerindo locais exatos (canto superior direito), cores (vermelho para promoções) e estilos de fonte (negrito, sem serifa) que combinem com a imagem fornecida.`
+    }
   },
-  required: ['name', 'description', 'category', 'price', 'keywords', 'variations', 'promotionalSlogan', 'imageTextSuggestions']
+  required: ['name', 'description', 'category', 'price', 'keywords', 'variations', 'promotionalSlogan', 'imageTextSuggestions', 'imageTextPlacementSuggestions']
 };
 
 /**
@@ -149,6 +153,7 @@ export const generateProductContent = async (image: File | null, title: string, 
         parsedJson.keywords = parsedJson.keywords || [];
         parsedJson.variations = parsedJson.variations || [];
         parsedJson.imageTextSuggestions = parsedJson.imageTextSuggestions || [];
+        parsedJson.imageTextPlacementSuggestions = parsedJson.imageTextPlacementSuggestions || '';
 
         return parsedJson;
     } catch (parseError) {
@@ -170,7 +175,11 @@ export const generateProductImages = async (image: File, content: ProductContent
   try {
     const imagePart = await fileToGenerativePart(image);
     
-    const generationPrompt = `Use a imagem fornecida como referência para gerar uma nova foto de produto profissional para e-commerce. A nova imagem deve ter iluminação de estúdio, um fundo de cor sólida e neutra que destaque o produto, e manter o produto em si idêntico ao original. O resultado deve ser uma imagem de alta qualidade, limpa e pronta para ser usada em um anúncio, sem nenhum texto adicionado.`;
+    const generationPrompt = `Sua tarefa é aprimorar a imagem do produto fornecida para uso em e-commerce.
+1. Analise a imagem atual. Se o fundo estiver poluído, com distrações ou de baixa qualidade, substitua-o por um fundo de cor sólida e neutra que complemente e destaque o produto. Use iluminação de estúdio profissional.
+2. Se o fundo já for limpo e profissional (como um fundo de estúdio), mantenha-o, mas aprimore a iluminação, nitidez e cores para tornar a imagem ainda mais atraente.
+3. O produto em si deve permanecer idêntico ao original, sem alterações.
+4. O resultado final deve ser uma imagem de alta qualidade, limpa, e pronta para um anúncio, sem nenhum texto adicionado.`;
 
     const response = await withRetry(async () => {
       const result = await ai.models.generateContent({

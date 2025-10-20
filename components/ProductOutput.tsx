@@ -96,6 +96,43 @@ const ImageResult: React.FC<{
   );
 };
 
+const PlacementSuggestions: React.FC<{ suggestions: string }> = ({ suggestions }) => {
+  const steps = suggestions.split('\n').filter(line => line.trim() !== '');
+
+  return (
+      <div className="space-y-4">
+          {steps.map((step, index) => {
+              const match = step.match(/^(?:\d+\.\s*)?(.+?):(.+)/);
+              
+              if (match) {
+                  const [, title, description] = match;
+                  return (
+                      <div key={index} className="flex items-start gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                              {index + 1}
+                          </div>
+                          <div>
+                              <h4 className="font-semibold text-gray-200">{title.trim()}</h4>
+                              <p className="text-gray-400 text-sm">{description.trim()}</p>
+                          </div>
+                      </div>
+                  );
+              }
+              
+              return (
+                  <div key={index} className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                          {index + 1}
+                      </div>
+                      <p className="text-gray-400 text-sm pt-1">{step.replace(/^\d+\.\s*/, '')}</p>
+                  </div>
+              );
+          })}
+      </div>
+  );
+};
+
+
 const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, error, generatedImage }) => {
   const [variations, setVariations] = useState<ProductVariation[]>([]);
   const [editorConfig, setEditorConfig] = useState<{isOpen: boolean; image: string | null}>({isOpen: false, image: null});
@@ -135,13 +172,10 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
     if (isLoading && !content) {
       return (
         <div className="space-y-6">
-            <SkeletonLoader className="h-6 w-2/3 mb-2" />
-            <SkeletonLoader className="h-10 w-full" />
-            
             <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
                 <SkeletonLoader className="h-5 w-1/3" />
                 <SkeletonLoader className="h-10 w-full" />
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <SkeletonLoader className="h-10 w-full" />
                     <SkeletonLoader className="h-10 w-full" />
                     <SkeletonLoader className="h-10 w-full" />
@@ -154,15 +188,39 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
             </div>
 
             <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
-                 <SkeletonLoader className="h-5 w-1/3 mb-3" />
-                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {[...Array(2)].map((_, i) => (
-                        <div key={i}>
-                            <SkeletonLoader className="aspect-square w-full mb-2" />
-                            <SkeletonLoader className="h-4 w-3/4 mx-auto" />
-                        </div>
-                    ))}
+                <SkeletonLoader className="h-5 w-1/3" />
+                <div className="max-w-md mx-auto">
+                    <SkeletonLoader className="aspect-square w-full" />
                 </div>
+            </div>
+
+            <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
+                <SkeletonLoader className="h-5 w-1/2" />
+                <div className="space-y-3">
+                    <SkeletonLoader className="h-12 w-full" />
+                    <SkeletonLoader className="h-12 w-full" />
+                    <SkeletonLoader className="h-12 w-full" />
+                </div>
+            </div>
+            
+            <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
+              <SkeletonLoader className="h-5 w-1/3 mb-4" />
+              <div className="space-y-4">
+                  <div className="flex items-start gap-4">
+                      <SkeletonLoader className="w-8 h-8 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                          <SkeletonLoader className="h-4 w-1/4" />
+                          <SkeletonLoader className="h-3 w-full" />
+                      </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                      <SkeletonLoader className="w-8 h-8 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                          <SkeletonLoader className="h-4 w-1/4" />
+                          <SkeletonLoader className="h-3 w-full" />
+                      </div>
+                  </div>
+              </div>
             </div>
         </div>
       );
@@ -274,6 +332,13 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
           )}
         </div>
         
+        {content.imageTextPlacementSuggestions && (
+            <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-300 mb-4">Dicas de Montagem para Imagem</h3>
+                <PlacementSuggestions suggestions={content.imageTextPlacementSuggestions} />
+            </div>
+        )}
+
         <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
           <h3 className="text-lg font-semibold text-gray-300 mb-4">SEO e Palavras-chave</h3>
           <div className="flex flex-wrap gap-2">
