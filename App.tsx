@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ProductInput from './components/ProductInput';
 import ProductOutput from './components/ProductOutput';
 import { generateProductContent, generateProductImages } from './services/geminiService';
-import { ProductContent, GeneratedImageSet } from './types';
+import { ProductContent, GeneratedProductImage } from './types';
 
 // This type is used to track the UI state through the generation process.
 export type GenerationStep = 'idle' | 'content' | 'images' | 'error' | 'done';
@@ -10,20 +10,14 @@ export type GenerationStep = 'idle' | 'content' | 'images' | 'error' | 'done';
 const App: React.FC = () => {
   const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
   const [productContent, setProductContent] = useState<ProductContent | null>(null);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({
-    remastered: null,
-    studio: null,
-    lifestyle: null,
-    infographic: null,
-    dramatic: null,
-  });
+  const [generatedImage, setGeneratedImage] = useState<GeneratedProductImage>(null);
   const [error, setError] = useState<string | null>(null);
   const [originalImagePreview, setOriginalImagePreview] = useState<string | null>(null);
 
   const handleGenerate = async (image: File | null, title: string, url: string) => {
     // Reset state for a new generation
     setProductContent(null);
-    setGeneratedImages({ remastered: null, studio: null, lifestyle: null, infographic: null, dramatic: null });
+    setGeneratedImage(null);
     setError(null);
     setGenerationStep('content');
     
@@ -45,8 +39,8 @@ const App: React.FC = () => {
       // 2. Generate edited Product Images from the uploaded image and generated content
       if (image) {
         setGenerationStep('images');
-        const images = await generateProductImages(image, content);
-        setGeneratedImages(images);
+        const newImage = await generateProductImages(image, content);
+        setGeneratedImage(newImage);
       }
 
       setGenerationStep('done');
@@ -71,8 +65,7 @@ const App: React.FC = () => {
           content={productContent} 
           generationStep={generationStep} 
           error={error} 
-          originalImagePreview={originalImagePreview} 
-          generatedImages={generatedImages}
+          generatedImage={generatedImage}
         />
       </main>
       <footer className="text-center py-4 text-gray-500 text-sm">

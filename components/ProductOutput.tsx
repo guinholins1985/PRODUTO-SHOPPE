@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ProductContent, ProductVariation, GeneratedImageSet } from '../types';
+import { ProductContent, ProductVariation, GeneratedProductImage } from '../types';
 import CopyIcon from './icons/CopyIcon';
 import CheckIcon from './icons/CheckIcon';
 import TrashIcon from './icons/TrashIcon';
@@ -10,8 +10,7 @@ interface ProductOutputProps {
   content: ProductContent | null;
   generationStep: GenerationStep;
   error: string | null;
-  originalImagePreview: string | null;
-  generatedImages: GeneratedImageSet;
+  generatedImage: GeneratedProductImage;
 }
 
 const useCopyToClipboard = (text: string) => {
@@ -84,7 +83,7 @@ const ImageResult: React.FC<{
   );
 };
 
-const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, error, originalImagePreview, generatedImages }) => {
+const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, error, generatedImage }) => {
   const [variations, setVariations] = useState<ProductVariation[]>([]);
   const [editorConfig, setEditorConfig] = useState<{isOpen: boolean; image: string | null}>({isOpen: false, image: null});
 
@@ -144,7 +143,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
             <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
                  <SkeletonLoader className="h-5 w-1/3 mb-3" />
                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {[...Array(6)].map((_, i) => (
+                    {[...Array(2)].map((_, i) => (
                         <div key={i}>
                             <SkeletonLoader className="aspect-square w-full mb-2" />
                             <SkeletonLoader className="h-4 w-3/4 mx-auto" />
@@ -230,30 +229,23 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
         </div>
 
         <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-300">Imagens de Marketing (IA)</h3>
-            <p className="text-sm text-gray-400 -mt-3">Sua imagem original e 5 modelos otimizados pela IA.</p>
+            <h3 className="text-lg font-semibold text-gray-300">Imagem de Marketing (IA)</h3>
+            <p className="text-sm text-gray-400 -mt-3">Uma nova imagem do seu produto, gerada e otimizada pela IA para marketing.</p>
         
-            {originalImagePreview ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {/* Slot 1: Original */}
-                    <div className="text-center">
-                        <img 
-                            src={originalImagePreview} 
-                            alt="Produto Original" 
-                            className="aspect-square w-full object-cover rounded-md mb-2 border-2 border-transparent"
-                        />
-                        <h4 className="text-sm font-semibold text-gray-400">Original</h4>
+            <div className="max-w-md mx-auto">
+                {(areImagesLoading || generatedImage) ? (
+                    <ImageResult 
+                        title="Imagem Gerada por IA" 
+                        imageSrc={generatedImage} 
+                        isLoading={areImagesLoading} 
+                        onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} 
+                    />
+                ) : (
+                    <div className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-center text-sm text-gray-500 p-4">
+                        A imagem gerada aparecerá aqui.
                     </div>
-                    {/* The 5 Generated slots */}
-                    <ImageResult title="Remasterizada" imageSrc={generatedImages.remastered} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
-                    <ImageResult title="Fundo de Estúdio" imageSrc={generatedImages.studio} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
-                    <ImageResult title="Anúncio com Texto" imageSrc={generatedImages.infographic} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
-                    <ImageResult title="Cenário Realista" imageSrc={generatedImages.lifestyle} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
-                    <ImageResult title="Iluminação Dramática" imageSrc={generatedImages.dramatic} isLoading={areImagesLoading} onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} />
-                </div>
-            ) : (
-                 <p className="text-sm text-gray-500 text-center py-4">Nenhuma imagem para exibir. Envie uma imagem para gerar as versões de marketing.</p>
-            )}
+                )}
+            </div>
         </div>
         
         <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">

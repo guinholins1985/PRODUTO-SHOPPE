@@ -22,13 +22,6 @@ export interface ProductContent {
 }
 
 /**
- * Represents the 5 distinct, edited images generated from the user's original photo.
- * Each property corresponds to a specific editing style.
+ * Represents the single AI-generated image for the product.
  */
-export interface GeneratedImageSet {
-  remastered: string | null;
-  studio: string | null;
-  lifestyle: string | null;
-  infographic: string | null;
-  dramatic: string | null;
-}
+export type GeneratedProductImage = string | null;

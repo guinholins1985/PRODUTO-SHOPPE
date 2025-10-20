@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { ProductContent, GeneratedImageSet } from '../types';
+import { ProductContent, GeneratedProductImage } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -133,90 +133,41 @@ export const generateProductContent = async (image: File | null, title: string, 
   }
 };
 
-
-const generateImageWithGeminiAPI = async (prompt: string): Promise<string | null> => {
+export const generateProductImages = async (image: File, content: ProductContent): Promise<GeneratedProductImage> => {
   try {
+    const imagePart = await fileToGenerativePart(image);
+    
+    // A prompt designed to generate a new professional-looking image based on the original.
+    const generationPrompt = `Use a imagem fornecida como referência. Gere uma nova foto de produto profissional para e-commerce. A nova imagem deve ter iluminação de estúdio, um fundo de cor sólida e neutra que destaque o produto, e o produto deve estar em foco e nítido. Mantenha o produto idêntico ao original, sem adicionar ou remover elementos.`;
+
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image', // Using the recommended model via Gemini API to avoid rate limits
+      model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: prompt }],
+        parts: [
+          imagePart, // The original image as reference
+          { text: generationPrompt },
+        ],
       },
       config: {
         responseModalities: [Modality.IMAGE],
       },
     });
 
-    // Extract the image data from the response
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
-        const base64ImageBytes: string = part.inlineData.data;
-        return `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
-      }
+    // Safely access and extract the image data from the response
+    const imageContentPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType.startsWith('image/'));
+    
+    if (imageContentPart?.inlineData) {
+        const base64ImageBytes: string = imageContentPart.inlineData.data;
+        return `data:${imageContentPart.inlineData.mimeType};base64,${base64ImageBytes}`;
     }
     
-    return null;
-  } catch (e) {
-    console.error("Erro ao gerar imagem com Gemini API:", e);
-    return null;
+    console.warn("Nenhuma imagem gerada na resposta da API.", response);
+    // Throw a specific error if no image is returned
+    throw new Error("A IA não retornou uma imagem. Tente usar uma imagem diferente ou com melhor qualidade.");
+
+  } catch (error) {
+    console.error("Erro ao gerar a imagem do produto:", error);
+    // Corrected error message to be more specific and helpful.
+    throw new Error("Ocorreu um erro ao gerar a imagem. A API pode estar ocupada ou o formato da imagem não é suportado. Tente novamente com outro arquivo.");
   }
-};
-
-
-export const generateProductImages = async (image: File, content: ProductContent): Promise<GeneratedImageSet> => {
-    let detailedDescription = '';
-    try {
-        const imagePart = await fileToGenerativePart(image);
-        const descriptionResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: [{
-                parts: [
-                    { text: "Descreva o produto nesta imagem em uma frase curta e objetiva. Inclua o tipo de produto, cor e material principal. Exemplo: 'Um tênis de corrida masculino azul e branco'." },
-                    imagePart
-                ]
-            }],
-        });
-        detailedDescription = descriptionResponse.text.trim();
-    } catch (e) {
-        console.warn("Análise visual da imagem falhou. Usando fallback de texto.", e);
-        detailedDescription = `${content.name}, ${content.category}, ${content.keywords.slice(0, 3).join(', ')}`;
-    }
-    
-    if (!detailedDescription) {
-        detailedDescription = content.name;
-    }
-
-    // --- 5 Simplified, Robust Art Briefs for Maximum Reliability ---
-    
-    const promptRemaster = `Fotografia de produto, close-up em 8K de: ${detailedDescription}. Iluminação de estúdio profissional, foco nítido, fundo neutro e desfocado. Fotorrealista.`;
-
-    const promptStudio = `Fotografia de e-commerce de: ${detailedDescription}. O produto está centralizado em um fundo branco puro (#ffffff), com uma sombra suave e realista no chão.`;
-    
-    const promptLifestyle = `Foto de lifestyle mostrando: ${detailedDescription}. O produto está em um ambiente elegante e bem iluminado que complementa seu uso. Estilo de anúncio de revista, fotorrealista.`;
-    
-    const promptInfographic = `Foto macro, close-up extremo mostrando a textura e os detalhes de: ${detailedDescription}. Iluminação suave, profundidade de campo rasa. Fotorrealista.`;
-
-    const promptDramatic = `Foto publicitária cinematográfica de: ${detailedDescription}. Iluminação de estúdio dramática, low-key, com alto contraste entre luz e sombra. Fundo escuro e texturizado. Clima sofisticado.`;
-
-    // --- Run All 5 Generation Tasks in Parallel ---
-    const [
-        remastered,
-        studio,
-        lifestyle,
-        infographic,
-        dramatic
-    ] = await Promise.all([
-        generateImageWithGeminiAPI(promptRemaster),
-        generateImageWithGeminiAPI(promptStudio),
-        generateImageWithGeminiAPI(promptLifestyle),
-        generateImageWithGeminiAPI(promptInfographic),
-        generateImageWithGeminiAPI(promptDramatic)
-    ]);
-
-    return {
-        remastered,
-        studio,
-        lifestyle,
-        infographic,
-        dramatic
-    };
 };
