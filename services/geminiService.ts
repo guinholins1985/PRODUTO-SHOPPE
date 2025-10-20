@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ProductContent, GeneratedProductImage } from '../types';
 
@@ -143,15 +144,16 @@ export const generateProductContent = async (image: File | null, title: string):
   const model = 'gemini-2.5-pro';
   const parts: any[] = [];
   
-  let prompt = `Como um especialista em marketing de e-commerce e redator profissional, nativo do Brasil, sua tarefa é criar um anúncio de produto completo, persuasivo e ortograficamente impecável em Português do Brasil. Utilize um dicionário abrangente da língua portuguesa para garantir a precisão lexical, a riqueza do vocabulário e a naturalidade da linguagem.
-    Analise a imagem e as palavras-chave fornecidas e gere um JSON estruturado com todas as informações necessárias para um cadastro de alta conversão.
-    Seja criativo, focado em vendas, e garanta que todos os textos gerados (nomes, descrições, slogans) sejam revisados para garantir que não contenham erros gramaticais ou de digitação.`;
+  const systemInstruction = `Você é um especialista em marketing digital e e-commerce, fluente em Português do Brasil. Sua principal função é criar conteúdo de marketing de alta qualidade que seja persuasivo, otimizado para SEO e, acima de tudo, ortograficamente perfeito. Cada palavra deve ser revisada para garantir precisão gramatical e de acentuação, seguindo as normas da língua portuguesa. Aderir estritamente ao schema JSON fornecido é mandatório.`;
+  
+  let prompt = `Analise a imagem e as palavras-chave. Sua tarefa é gerar um JSON estruturado para um produto. **PRIORIDADE MÁXIMA: TODO o texto gerado, sem exceção, deve estar em Português do Brasil, com gramática, ortografia e acentuação perfeitas.** Revise cada campo antes de finalizar. O conteúdo deve ser criativo e focado em vendas. Se as palavras-chave do usuário estiverem em outro idioma, traduza a intenção para o Português do Brasil e gere todo o conteúdo nesse idioma.`;
     
   if (title) {
     prompt += `\n\nPalavras-chave do usuário para guiar a criação: ${title}`;
   }
   
   const config: any = {
+    systemInstruction: systemInstruction,
     temperature: 0.5,
     responseMimeType: "application/json",
     responseSchema: productContentSchema,
@@ -182,6 +184,7 @@ export const generateProductContent = async (image: File | null, title: string):
     try {
         const parsedJson = JSON.parse(responseText) as ProductContent;
 
+        // Ensure all potentially missing fields are initialized to avoid runtime errors
         parsedJson.keywords = parsedJson.keywords || [];
         parsedJson.variations = parsedJson.variations || [];
         parsedJson.imageTextSuggestions = parsedJson.imageTextSuggestions || [];
@@ -215,11 +218,11 @@ export const generateProductImages = async (image: File, content: ProductContent
   try {
     const imagePart = await fileToGenerativePart(image);
     
-    const generationPrompt = `Sua tarefa é aprimorar a imagem do produto fornecida para uso em e-commerce.
-1. Analise a imagem atual. Se o fundo estiver poluído, com distrações ou de baixa qualidade, substitua-o por um fundo de cor sólida e neutra que complemente e destaque o produto. Use iluminação de estúdio profissional.
-2. Se o fundo já for limpo e profissional (como um fundo de estúdio), mantenha-o, mas aprimore a iluminação, nitidez e cores para tornar a imagem ainda mais atraente.
-3. O produto em si deve permanecer idêntico ao original, sem alterações.
-4. O resultado final deve ser uma imagem de alta qualidade, limpa, e pronta para um anúncio, sem nenhum texto adicionado.`;
+    const generationPrompt = `Sua tarefa é refinar a imagem de produto fornecida para um padrão de publicidade de altíssima qualidade, comparável a uma edição profissional em Photoshop.
+1.  **Fundo Perfeito:** Se o fundo atual não for profissional, remova-o completamente e substitua por um fundo branco puro (#FFFFFF) ou de gradiente cinza muito sutil. O produto deve parecer estar em um estúdio fotográfico.
+2.  **Qualidade Superior:** Aumente a nitidez, melhore o contraste e equilibre as cores para que o produto pareça vibrante e real. Aplique iluminação de estúdio profissional para eliminar sombras indesejadas e destacar os detalhes.
+3.  **Fidelidade ao Produto:** O produto em si deve ser 100% preservado, sem distorções ou alterações em sua forma ou cor.
+4.  **Resultado Final:** A imagem deve ser ultra-detalhada, em alta definição (qualidade 4K), limpa e pronta para um e-commerce de luxo. Não adicione nenhum texto.`;
 
     const response = await withRetry(async () => {
       const result = await ai.models.generateContent({
@@ -266,10 +269,10 @@ export const generateProductMockups = async (base64Image: string, content: Produ
     const productContext = `O produto é da categoria "${content.category}" e descrito como: "${content.description.substring(0, 150)}...".`;
 
     const mockupPrompts = [
-        `Crie um mockup de estilo de vida (lifestyle). ${productContext} Coloque o produto em um ambiente realista e coerente. Por exemplo, se for um tênis de corrida, mostre-o em uma academia ou pista. Se for um item de cozinha, em uma cozinha moderna. A iluminação deve ser natural e atraente.`,
-        `Crie um mockup para uma postagem de rede social. ${productContext} Posicione o produto em um fundo de cor única e vibrante que complemente suas cores. Adicione sombras suaves e sutis para um efeito 3D. O estilo deve ser moderno e limpo.`,
-        `Crie um mockup luxuoso. ${productContext} Coloque o produto sobre uma superfície elegante, como mármore, madeira escura ou tecido de veludo. Use iluminação lateral suave para destacar texturas e criar uma atmosfera sofisticada.`,
-        `Crie um mockup minimalista e conceitual. ${productContext} Apresente o produto flutuando levemente, com um fundo de gradiente suave entre duas cores pastel. O foco total deve estar no produto, com o mínimo de distração.`
+        `Crie um mockup de estilo de vida (lifestyle) fotorrealista e em alta definição. ${productContext} Coloque o produto em um ambiente realista e coerente. A iluminação deve ser natural, cinematográfica e atraente, com profundidade de campo.`,
+        `Crie um mockup para uma postagem de rede social, com qualidade de estúdio. ${productContext} Posicione o produto em um fundo de cor única e vibrante que complemente suas cores. Adicione sombras suaves e realistas para um efeito 3D. O estilo deve ser moderno, limpo e em altíssima resolução.`,
+        `Crie um mockup luxuoso e em alta definição. ${productContext} Coloque o produto sobre uma superfície elegante, como mármore, madeira escura ou tecido de veludo. Use iluminação lateral dramática para destacar texturas e criar uma atmosfera sofisticada e premium.`,
+        `Crie um mockup minimalista e conceitual, ultra-limpo. ${productContext} Apresente o produto flutuando levemente sobre um fundo de gradiente sutil. O foco deve ser absoluto no produto, com renderização nítida e detalhada.`
     ];
 
     try {
@@ -315,7 +318,10 @@ export const generateCouponBanner = async (couponCode: string, promotionalPhrase
     try {
         const imagePart = base64ToGenerativePart(base64ProductImage);
         
-        const prompt = `Sua tarefa é criar um banner promocional 16:9, vibrante e chamativo, para uma loja de e-commerce. Incorpore a imagem do produto fornecida de forma harmoniosa. O banner deve destacar o código de desconto "${couponCode}" e a frase "${promotionalPhrase}". É absolutamente crucial que todo o texto no banner seja escrito em Português do Brasil e seja ortograficamente impecável. Revise cada palavra, caractere e acento para garantir 100% de precisão. Não são permitidos erros de NENHUM tipo. Use um design moderno, com tipografia em negrito e de fácil leitura. A paleta de cores deve complementar o produto. O resultado final deve ser profissional e pronto para marketing.`;
+        const prompt = `Sua tarefa é criar um banner promocional 16:9 com um design gráfico de nível de agência de publicidade, comparável a um trabalho feito em CorelDRAW ou Photoshop.
+1.  **Integração do Produto:** Incorpore a imagem do produto fornecida de forma elegante e profissional.
+2.  **Texto Perfeito:** Destaque o código de desconto "${couponCode}" e a frase "${promotionalPhrase}". O texto deve ser em **Português do Brasil, com ortografia, gramática e acentuação absolutamente perfeitas**. A revisão é a prioridade máxima.
+3.  **Design de Alta Qualidade:** Use um layout moderno, tipografia premium (negrito, clara, legível) e uma paleta de cores que complemente o produto. O resultado deve ser nítido, em alta definição e extremamente profissional.`;
         
         const response = await withRetry(async () => {
             const result = await ai.models.generateContent({
@@ -343,6 +349,7 @@ export const generateCouponBanner = async (couponCode: string, promotionalPhrase
         console.warn("API response did not contain a coupon banner image.", response);
         return null;
 
+    // FIX: Added missing curly braces to the catch block.
     } catch (error) {
         console.error("Falha ao gerar o banner do cupom:", error);
         return null;
