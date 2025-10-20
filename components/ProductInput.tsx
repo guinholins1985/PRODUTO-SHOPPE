@@ -10,6 +10,67 @@ interface ProductInputProps {
   generationStep: GenerationStep;
 }
 
+// Utility function to resize images client-side for performance.
+const resizeImage = (file: File, maxDimension: number): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      if (!event.target?.result) {
+          return reject(new Error("Failed to read file."));
+      }
+      const img = new Image();
+      img.src = event.target.result as string;
+      img.onload = () => {
+        const { width, height } = img;
+
+        // If the image is already small enough, no need to resize.
+        if (width <= maxDimension && height <= maxDimension) {
+          return resolve(file);
+        }
+
+        let newWidth, newHeight;
+
+        if (width > height) {
+          newWidth = maxDimension;
+          newHeight = (height * maxDimension) / width;
+        } else {
+          newHeight = maxDimension;
+          newWidth = (width * maxDimension) / height;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          return reject(new Error('Could not get canvas context'));
+        }
+
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+        // Convert canvas to blob, then to file.
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            return reject(new Error('Canvas to Blob conversion failed'));
+          }
+          // Preserve the original file name, but use a more common type for web.
+          const outputType = 'image/jpeg';
+          const resizedFile = new File([blob], file.name, {
+            type: outputType,
+            lastModified: Date.now(),
+          });
+          resolve(resizedFile);
+        }, 'image/jpeg', 0.9); // Use JPEG with 90% quality for good compression.
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
+
+
 const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep }) => {
   const [inputType, setInputType] = useState<'image' | 'link'>('image');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -21,17 +82,28 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
 
   const isLoading = generationStep === 'content' || generationStep === 'images';
 
-  const handleFileChange = useCallback((files: FileList | null) => {
+  const handleFileChange = useCallback(async (files: FileList | null) => { // Made async
     if (files && files[0]) {
-      const file = files[0];
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      // Automatically trigger content generation on file upload.
-      onGenerate(file, title, '');
+      const originalFile = files[0];
+      try {
+        // Resize the image to prevent timeouts and speed up processing. Max dimension 1024px.
+        const resizedFile = await resizeImage(originalFile, 1024);
+        
+        setImageFile(resizedFile);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(resizedFile);
+        
+        // Automatically trigger content generation on file upload.
+        onGenerate(resizedFile, title, '');
+
+      } catch (error) {
+        console.error("Error resizing image:", error);
+        alert("Houve um erro ao processar a imagem. Por favor, tente um arquivo diferente.");
+      }
     }
   }, [onGenerate, title]);
 

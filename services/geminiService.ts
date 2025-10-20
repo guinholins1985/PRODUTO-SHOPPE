@@ -52,9 +52,32 @@ const productContentSchema = {
   required: ['name', 'description', 'category', 'price', 'keywords', 'variations', 'promotionalSlogan']
 };
 
+/**
+ * A robust retry wrapper for async functions with exponential backoff.
+ * @param fn The async function to execute.
+ * @param retries Number of retry attempts.
+ * @param delay Delay in ms for the first retry.
+ * @returns The result of the async function.
+ */
+const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+  let lastError: Error | undefined;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      console.warn(`Attempt ${i + 1} of ${retries} failed. Retrying in ${delay * Math.pow(2, i)}ms...`);
+      lastError = error as Error;
+      if (i < retries - 1) {
+        await new Promise(res => setTimeout(res, delay * Math.pow(2, i)));
+      }
+    }
+  }
+  throw lastError;
+};
+
 
 export const generateProductContent = async (image: File | null, title: string, url: string): Promise<ProductContent> => {
-  const model = 'gemini-2.5-pro'; // Using Google's most powerful model for maximum quality.
+  const model = 'gemini-2.5-pro';
   const parts: any[] = [];
   let config: any = {
     temperature: 0.5,
@@ -62,7 +85,6 @@ export const generateProductContent = async (image: File | null, title: string, 
   let prompt = '';
   
   if (url) {
-    // URL-based generation logic - FIXED
     prompt = `Como um especialista em marketing de e-commerce, sua tarefa é criar um anúncio de produto completo e persuasivo em Português do Brasil.
     Use a ferramenta de busca do Google para analisar profundamente o conteúdo do link de referência fornecido (${url}) e extraia todas as informações relevantes.
     Com base na análise, gere um JSON que corresponda EXATAMENTE ao seguinte schema. O JSON DEVE estar dentro de um bloco de código markdown (e.g., \`\`\`json ... \`\`\`):
@@ -76,7 +98,6 @@ export const generateProductContent = async (image: File | null, title: string, 
     parts.push({ text: prompt });
 
   } else {
-    // Image-based generation logic
     prompt = `Como um especialista em marketing de e-commerce, sua tarefa é criar um anúncio de produto completo e persuasivo em Português do Brasil.
     Analise a imagem e as palavras-chave fornecidas e gere um JSON estruturado com todas as informações necessárias para um cadastro de alta conversão.
     Seja criativo e focado em vendas.`;
@@ -97,16 +118,21 @@ export const generateProductContent = async (image: File | null, title: string, 
   }
 
   try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: [{ parts: parts }],
-      config: config,
+    const response = await withRetry(async () => {
+        const result = await ai.models.generateContent({
+            model: model,
+            contents: [{ parts: parts }],
+            config: config,
+        });
+        if (result.promptFeedback?.blockReason) {
+            throw new Error(`A geração de conteúdo foi bloqueada pela política de segurança: ${result.promptFeedback.blockReason}.`);
+        }
+        return result;
     });
 
     const responseText = response.text.trim();
     let jsonString = responseText;
 
-    // More robustly find the JSON block, which might be wrapped in ```json ... ``` or just be the raw text.
     const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonMatch && jsonMatch[1]) {
         jsonString = jsonMatch[1];
@@ -115,7 +141,6 @@ export const generateProductContent = async (image: File | null, title: string, 
     try {
         const parsedJson = JSON.parse(jsonString) as ProductContent;
 
-        // Defensive coding: ensure arrays are not undefined if model omits them
         parsedJson.keywords = parsedJson.keywords || [];
         parsedJson.variations = parsedJson.variations || [];
 
@@ -127,9 +152,11 @@ export const generateProductContent = async (image: File | null, title: string, 
     }
 
   } catch (error) {
-    console.error("Erro ao gerar conteúdo do produto:", error);
-    const reason = url ? "a URL é inválida ou inacessível" : "a imagem não pôde ser processada";
-    throw new Error(`Não foi possível gerar os detalhes do produto. A API pode estar ocupada ou ${reason}. Tente novamente.`);
+    console.error("Falha ao gerar conteúdo do produto após múltiplas tentativas:", error);
+    if (error instanceof Error && error.message.includes('política de segurança')) {
+        throw error;
+    }
+    throw new Error("Não foi possível gerar os detalhes do produto. A API pode estar instável ou a entrada é inválida. Tente novamente.");
   }
 };
 
@@ -137,23 +164,28 @@ export const generateProductImages = async (image: File, content: ProductContent
   try {
     const imagePart = await fileToGenerativePart(image);
     
-    // A prompt designed to generate a new professional-looking image based on the original.
     const generationPrompt = `Use a imagem fornecida como referência. Gere uma nova foto de produto profissional para e-commerce. A nova imagem deve ter iluminação de estúdio, um fundo de cor sólida e neutra que destaque o produto, e o produto deve estar em foco e nítido. Mantenha o produto idêntico ao original, sem adicionar ou remover elementos.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          imagePart, // The original image as reference
-          { text: generationPrompt },
-        ],
-      },
-      config: {
-        responseModalities: [Modality.IMAGE],
-      },
+    const response = await withRetry(async () => {
+      const result = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [
+            imagePart,
+            { text: generationPrompt },
+          ],
+        },
+        config: {
+          responseModalities: [Modality.IMAGE],
+        },
+      });
+      
+      if (result.promptFeedback?.blockReason) {
+        throw new Error(`A imagem foi bloqueada pela política de segurança: ${result.promptFeedback.blockReason}. Tente uma imagem diferente.`);
+      }
+      return result;
     });
 
-    // Safely access and extract the image data from the response
     const imageContentPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType.startsWith('image/'));
     
     if (imageContentPart?.inlineData) {
@@ -161,13 +193,14 @@ export const generateProductImages = async (image: File, content: ProductContent
         return `data:${imageContentPart.inlineData.mimeType};base64,${base64ImageBytes}`;
     }
     
-    console.warn("Nenhuma imagem gerada na resposta da API.", response);
-    // Throw a specific error if no image is returned
-    throw new Error("A IA não retornou uma imagem. Tente usar uma imagem diferente ou com melhor qualidade.");
+    console.warn("API response did not contain an image.", response);
+    throw new Error("A IA não retornou uma imagem, embora a solicitação tenha sido bem-sucedida. Tente usar uma imagem diferente.");
 
   } catch (error) {
-    console.error("Erro ao gerar a imagem do produto:", error);
-    // Corrected error message to be more specific and helpful.
-    throw new Error("Ocorreu um erro ao gerar a imagem. A API pode estar ocupada ou o formato da imagem não é suportado. Tente novamente com outro arquivo.");
+    console.error("Falha ao gerar a imagem do produto após múltiplas tentativas:", error);
+    if (error instanceof Error && error.message.includes('política de segurança')) {
+      throw error;
+    }
+    throw new Error("Não foi possível gerar a imagem. A API pode estar instável ou sobrecarregada. Por favor, tente novamente mais tarde.");
   }
 };
