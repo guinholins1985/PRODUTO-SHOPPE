@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import ProductInput from './components/ProductInput';
 import ProductOutput from './components/ProductOutput';
-import { generateProductContent, generateProductImages, generateProductMockups, generateCouponBanner } from './services/geminiService';
+import { generateProductContent, generateProductImages, generateProductMockups } from './services/geminiService';
 import { ProductContent, GeneratedProductImage } from './types';
 
 // This type is used to track the UI state through the generation process.
@@ -12,7 +13,6 @@ const App: React.FC = () => {
   const [productContent, setProductContent] = useState<ProductContent | null>(null);
   const [generatedImage, setGeneratedImage] = useState<GeneratedProductImage>(null);
   const [generatedMockups, setGeneratedMockups] = useState<string[]>([]);
-  const [generatedCouponBanner, setGeneratedCouponBanner] = useState<GeneratedProductImage>(null);
   const [error, setError] = useState<string | null>(null);
   const [originalImagePreview, setOriginalImagePreview] = useState<string | null>(null);
 
@@ -21,7 +21,6 @@ const App: React.FC = () => {
     setProductContent(null);
     setGeneratedImage(null);
     setGeneratedMockups([]);
-    setGeneratedCouponBanner(null);
     setError(null);
     setGenerationStep('content');
     
@@ -36,44 +35,42 @@ const App: React.FC = () => {
     }
 
     try {
-      // 1. Generate Product Content (description, keywords, etc.)
-      const content = await generateProductContent(image, title);
-      setProductContent(content);
-      setGenerationStep('images');
+      if (image) {
+        // --- IMAGE-BASED GENERATION ---
 
-      // If no image was provided, we can't generate visuals.
-      if (!image) {
-        setGenerationStep('done');
-        return;
-      }
+        // 1. Generate content and main image in parallel for performance.
+        const [content, newImage] = await Promise.all([
+          generateProductContent(image, title),
+          generateProductImages(image)
+        ]);
+        
+        setProductContent(content);
+        setGeneratedImage(newImage);
+        setGenerationStep('images'); // Transition to loading secondary images (mockups, banner)
 
-      // 2. Generate the main, enhanced product image. This is a prerequisite for the next steps.
-      const newImage = await generateProductImages(image, content);
-      setGeneratedImage(newImage);
+        // If the main image fails to generate, we can't create mockups or a banner.
+        if (!newImage) {
+          setGenerationStep('done');
+          return;
+        }
 
-      // If the main image fails to generate, we can't create mockups or a banner.
-      if (!newImage) {
-        setGenerationStep('done');
-        return;
-      }
-
-      // 3. With the main image ready, generate mockups and the coupon banner in parallel.
-      const secondaryImageTasks: Promise<any>[] = [];
-      
-      secondaryImageTasks.push(
-        generateProductMockups(newImage, content).then(setGeneratedMockups)
-      );
-      
-      if (content.coupon?.code && content.coupon?.phrase) {
+        // 2. With the main image ready, generate mockups and the coupon banner in parallel.
+        const secondaryImageTasks: Promise<any>[] = [];
+        
         secondaryImageTasks.push(
-          generateCouponBanner(content.coupon.code, content.coupon.phrase, newImage)
-            .then(setGeneratedCouponBanner)
+          generateProductMockups(newImage, content).then(setGeneratedMockups)
         );
-      }
-      
-      await Promise.all(secondaryImageTasks);
+        
+        await Promise.all(secondaryImageTasks);
 
-      setGenerationStep('done');
+        setGenerationStep('done');
+
+      } else {
+        // --- TEXT-ONLY GENERATION ---
+        const content = await generateProductContent(null, title);
+        setProductContent(content);
+        setGenerationStep('done');
+      }
 
     } catch (err) {
       console.error(err);
@@ -97,7 +94,6 @@ const App: React.FC = () => {
           error={error} 
           generatedImage={generatedImage}
           generatedMockups={generatedMockups}
-          generatedCouponBanner={generatedCouponBanner}
         />
       </main>
       <footer className="text-center py-4 text-gray-500 text-sm">

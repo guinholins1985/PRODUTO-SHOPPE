@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ProductContent, GeneratedProductImage } from '../types';
 
@@ -214,7 +213,7 @@ export const generateProductContent = async (image: File | null, title: string):
   }
 };
 
-export const generateProductImages = async (image: File, content: ProductContent): Promise<GeneratedProductImage> => {
+export const generateProductImages = async (image: File): Promise<GeneratedProductImage> => {
   try {
     const imagePart = await fileToGenerativePart(image);
     
@@ -267,19 +266,25 @@ export const generateProductMockups = async (base64Image: string, content: Produ
     if (!base64Image) return [];
 
     const productContext = `O produto é da categoria "${content.category}" e descrito como: "${content.description.substring(0, 150)}...".`;
+    const finalInstruction = "Não adicione NENHUM texto, logo ou elemento gráfico. A imagem deve conter apenas o produto no cenário descrito.";
 
     const mockupPrompts = [
-        `Crie um mockup de estilo de vida (lifestyle) fotorrealista e em alta definição. ${productContext} Coloque o produto em um ambiente realista e coerente. A iluminação deve ser natural, cinematográfica e atraente, com profundidade de campo.`,
-        `Crie um mockup para uma postagem de rede social, com qualidade de estúdio. ${productContext} Posicione o produto em um fundo de cor única e vibrante que complemente suas cores. Adicione sombras suaves e realistas para um efeito 3D. O estilo deve ser moderno, limpo e em altíssima resolução.`,
-        `Crie um mockup luxuoso e em alta definição. ${productContext} Coloque o produto sobre uma superfície elegante, como mármore, madeira escura ou tecido de veludo. Use iluminação lateral dramática para destacar texturas e criar uma atmosfera sofisticada e premium.`,
-        `Crie um mockup minimalista e conceitual, ultra-limpo. ${productContext} Apresente o produto flutuando levemente sobre um fundo de gradiente sutil. O foco deve ser absoluto no produto, com renderização nítida e detalhada.`
+        `Crie um mockup de estilo de vida (lifestyle) fotorrealista e em alta definição. ${productContext} Coloque o produto em um ambiente realista e coerente. A iluminação deve ser natural, cinematográfica e atraente, com profundidade de campo. ${finalInstruction}`,
+        `Crie um mockup para uma postagem de rede social, com qualidade de estúdio. ${productContext} Posicione o produto em um fundo de cor única e vibrante que complemente suas cores. Adicione sombras suaves e realistas para um efeito 3D. O estilo deve ser moderno, limpo e em altíssima resolução. ${finalInstruction}`,
+        `Crie um mockup luxuoso e em alta definição. ${productContext} Coloque o produto sobre uma superfície elegante, como mármore, madeira escura ou tecido de veludo. Use iluminação lateral dramática para destacar texturas e criar uma atmosfera sofisticada e premium. ${finalInstruction}`,
+        `Crie um mockup minimalista e conceitual, ultra-limpo. ${productContext} Apresente o produto flutuando levemente sobre um fundo de gradiente sutil. O foco deve ser absoluto no produto, com renderização nítida e detalhada. ${finalInstruction}`
     ];
 
-    try {
-        const imagePart = base64ToGenerativePart(base64Image);
+    const generatedMockups: string[] = [];
 
-        const mockupPromises = mockupPrompts.map(prompt => {
-            return withRetry(async () => {
+    // Executa as chamadas em série para evitar erros de limite de taxa da API (rate limiting)
+    // e aumentar a confiabilidade da geração de imagens.
+    for (const prompt of mockupPrompts) {
+        try {
+            const imagePart = base64ToGenerativePart(base64Image);
+            
+            // Cada mockup é gerado individualmente com sua própria lógica de retry.
+            const resultUrl = await withRetry(async () => {
                 const result = await ai.models.generateContent({
                     model: 'gemini-2.5-flash-image',
                     contents: {
@@ -292,10 +297,12 @@ export const generateProductMockups = async (base64Image: string, content: Produ
                         responseModalities: [Modality.IMAGE],
                     },
                 });
+
                 if (result.promptFeedback?.blockReason) {
-                    console.warn(`Mockup generation was blocked: ${result.promptFeedback.blockReason}`);
-                    return null;
+                    console.warn(`A geração de mockup foi bloqueada: ${result.promptFeedback.blockReason}`);
+                    return null; // Retorna nulo se bloqueado, para não quebrar o loop.
                 }
+
                 for (const part of result.candidates[0].content.parts) {
                     if (part.inlineData) {
                        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
@@ -303,55 +310,15 @@ export const generateProductMockups = async (base64Image: string, content: Produ
                 }
                 return null;
             });
-        });
-
-        const results = await Promise.all(mockupPromises);
-        return results.filter((result): result is string => result !== null);
-
-    } catch (error) {
-        console.error("Failed to generate product mockups:", error);
-        return [];
-    }
-};
-
-export const generateCouponBanner = async (couponCode: string, promotionalPhrase: string, base64ProductImage: string): Promise<GeneratedProductImage> => {
-    try {
-        const imagePart = base64ToGenerativePart(base64ProductImage);
-        
-        const prompt = `Sua tarefa é criar um banner promocional 16:9 com um design gráfico de nível de agência de publicidade, comparável a um trabalho feito em CorelDRAW ou Photoshop.
-1.  **Integração do Produto:** Incorpore a imagem do produto fornecida de forma elegante e profissional.
-2.  **Texto Perfeito:** Destaque o código de desconto "${couponCode}" e a frase "${promotionalPhrase}". O texto deve ser em **Português do Brasil, com ortografia, gramática e acentuação absolutamente perfeitas**. A revisão é a prioridade máxima.
-3.  **Design de Alta Qualidade:** Use um layout moderno, tipografia premium (negrito, clara, legível) e uma paleta de cores que complemente o produto. O resultado deve ser nítido, em alta definição e extremamente profissional.`;
-        
-        const response = await withRetry(async () => {
-            const result = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: {
-                    parts: [imagePart, { text: prompt }],
-                },
-                config: {
-                    responseModalities: [Modality.IMAGE],
-                },
-            });
-            if (result.promptFeedback?.blockReason) {
-                throw new Error(`A imagem do banner foi bloqueada pela política de segurança: ${result.promptFeedback.blockReason}.`);
+            
+            if (resultUrl) {
+                generatedMockups.push(resultUrl);
             }
-            return result;
-        });
-
-        for (const part of response.candidates[0].content.parts) {
-            if (part.inlineData) {
-                const base64ImageBytes: string = part.inlineData.data;
-                return `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
-            }
+        } catch (error) {
+            // Se um mockup individual falhar, registra o erro e continua para o próximo.
+            console.error(`Falha ao gerar um mockup para o prompt: "${prompt.substring(0, 50)}..."`, error);
         }
-    
-        console.warn("API response did not contain a coupon banner image.", response);
-        return null;
-
-    // FIX: Added missing curly braces to the catch block.
-    } catch (error) {
-        console.error("Falha ao gerar o banner do cupom:", error);
-        return null;
     }
+
+    return generatedMockups;
 };

@@ -76,6 +76,26 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, onClose, slogan }) 
     }
   }, [imageSrc]);
 
+  // Effect to add initial text if a slogan is provided
+  useEffect(() => {
+    // Only add initial text if a slogan is provided and there's no text yet.
+    if (slogan && baseImage && texts.length === 0) {
+      const newText: TextObject = {
+        id: Date.now(),
+        text: slogan,
+        x: canvasSize.width / 2,
+        y: canvasSize.height / 2,
+        color: '#FFFFFF',
+        size: 40,
+        isDragging: false,
+        offsetX: 0,
+        offsetY: 0,
+      };
+      setTexts([newText]);
+      setSelectedTextId(newText.id);
+    }
+  }, [slogan, baseImage, canvasSize]);
+
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;

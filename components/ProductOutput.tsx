@@ -5,6 +5,7 @@ import CheckIcon from './icons/CheckIcon';
 import TrashIcon from './icons/TrashIcon';
 import { GenerationStep } from '../App';
 import ImageEditor from './ImageEditor';
+import ImageIcon from './icons/ImageIcon';
 
 interface ProductOutputProps {
   content: ProductContent | null;
@@ -12,7 +13,6 @@ interface ProductOutputProps {
   error: string | null;
   generatedImage: GeneratedProductImage;
   generatedMockups: string[];
-  generatedCouponBanner: GeneratedProductImage;
 }
 
 const useCopyToClipboard = (text: string) => {
@@ -136,9 +136,9 @@ const PlacementSuggestions: React.FC<{ suggestions: string }> = ({ suggestions }
 };
 
 
-const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, error, generatedImage, generatedMockups, generatedCouponBanner }) => {
+const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, error, generatedImage, generatedMockups }) => {
   const [variations, setVariations] = useState<ProductVariation[]>([]);
-  const [editorConfig, setEditorConfig] = useState<{isOpen: boolean; image: string | null}>({isOpen: false, image: null});
+  const [editorConfig, setEditorConfig] = useState<{isOpen: boolean; image: string | null; defaultText?: string}>({isOpen: false, image: null});
 
   useEffect(() => {
     setVariations(content?.variations || []);
@@ -373,13 +373,28 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
                         <EditableField label="Frase Promocional" value={content.coupon.phrase} />
                     </div>
                     <div className="w-full">
-                         <ImageResult
-                            title="Banner Promocional (IA)"
-                            imageSrc={generatedCouponBanner}
-                            isLoading={areImagesLoading && !generatedCouponBanner}
-                            onImageClick={(src) => setEditorConfig({isOpen: true, image: src})}
-                            aspectRatio="aspect-video"
-                         />
+                        {generatedImage ? (
+                          <div className="text-center">
+                            <p className="text-sm text-gray-400 mb-2">Use a imagem principal para criar um banner:</p>
+                            <img
+                              src={generatedImage}
+                              alt="Imagem base para banner"
+                              className="aspect-video w-full object-contain rounded-md bg-gray-800 mb-3 cursor-pointer hover:opacity-80 transition-opacity border-2 border-transparent hover:border-indigo-500"
+                              onClick={() => setEditorConfig({isOpen: true, image: generatedImage, defaultText: ''})}
+                            />
+                            <button
+                              onClick={() => setEditorConfig({isOpen: true, image: generatedImage, defaultText: ''})}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                            >
+                                <ImageIcon className="w-5 h-5" />
+                                Abrir no Editor de Imagem
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="aspect-video w-full bg-gray-800 rounded-md flex items-center justify-center text-center text-xs text-gray-500 p-2">
+                            Gere uma imagem principal para criar um banner.
+                          </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -413,7 +428,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
                         title="Imagem Gerada por IA" 
                         imageSrc={generatedImage} 
                         isLoading={areImagesLoading && !generatedImage} 
-                        onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} 
+                        onImageClick={(src) => setEditorConfig({isOpen: true, image: src, defaultText: ''})} 
                     />
                 ) : (
                     <div className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-center text-sm text-gray-500 p-4">
@@ -442,7 +457,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
                                 title={`Mockup ${index + 1}`} 
                                 imageSrc={mockupSrc} 
                                 isLoading={false} 
-                                onImageClick={(src) => setEditorConfig({isOpen: true, image: src})} 
+                                onImageClick={(src) => setEditorConfig({isOpen: true, image: src, defaultText: ''})} 
                             />
                         ))
                     )}
@@ -531,7 +546,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
         <ImageEditor 
           imageSrc={editorConfig.image}
           onClose={() => setEditorConfig({isOpen: false, image: null})}
-          slogan={content.promotionalSlogan}
+          slogan={editorConfig.defaultText}
         />
       )}
       </>
