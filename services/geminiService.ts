@@ -268,11 +268,20 @@ export const generateProductMockups = async (base64Image: string, content: Produ
     const productContext = `O produto é da categoria "${content.category}" e descrito como: "${content.description.substring(0, 150)}...".`;
     const finalInstruction = "Não adicione NENHUM texto, logo ou elemento gráfico. A imagem deve conter apenas o produto no cenário descrito.";
 
+    // Detecta se o produto é uma peça de vestuário para adicionar um modelo humano.
+    const apparelKeywords = ['roupa', 'vestuário', 'moda', 'camiseta', 'camisa', 'calça', 'vestido', 'saia', 'short', 'blusa', 'jaqueta', 'casaco', 'moletom'];
+    const isApparel = apparelKeywords.some(keyword => content.category.toLowerCase().includes(keyword));
+
+    let modelInstruction = '';
+    if (isApparel) {
+        modelInstruction = `Como este produto é uma peça de vestuário, a imagem DEVE mostrar o produto sendo usado por um modelo humano (homem, mulher ou criança, conforme apropriado para o produto) em uma pose natural e atraente. O rosto do modelo pode estar visível ou não, mas o foco principal deve ser em como a roupa veste no corpo, mostrando seu caimento e estilo.`;
+    }
+
     const mockupPrompts = [
-        `Crie um mockup de estilo de vida (lifestyle) fotorrealista e em alta definição. ${productContext} Coloque o produto em um ambiente realista e coerente. A iluminação deve ser natural, cinematográfica e atraente, com profundidade de campo. ${finalInstruction}`,
-        `Crie um mockup para uma postagem de rede social, com qualidade de estúdio. ${productContext} Posicione o produto em um fundo de cor única e vibrante que complemente suas cores. Adicione sombras suaves e realistas para um efeito 3D. O estilo deve ser moderno, limpo e em altíssima resolução. ${finalInstruction}`,
-        `Crie um mockup luxuoso e em alta definição. ${productContext} Coloque o produto sobre uma superfície elegante, como mármore, madeira escura ou tecido de veludo. Use iluminação lateral dramática para destacar texturas e criar uma atmosfera sofisticada e premium. ${finalInstruction}`,
-        `Crie um mockup minimalista e conceitual, ultra-limpo. ${productContext} Apresente o produto flutuando levemente sobre um fundo de gradiente sutil. O foco deve ser absoluto no produto, com renderização nítida e detalhada. ${finalInstruction}`
+        `Crie um mockup de estilo de vida (lifestyle) fotorrealista e em alta definição. ${productContext} Coloque o produto em um ambiente realista e coerente. ${modelInstruction} A iluminação deve ser natural, cinematográfica e atraente, com profundidade de campo. ${finalInstruction}`,
+        `Crie um mockup para uma postagem de rede social, com qualidade de estúdio. ${productContext} ${modelInstruction} Se um modelo for usado, posicione-o em um fundo de cor única e vibrante que complemente as cores do produto. Adicione sombras suaves e realistas para um efeito 3D. O estilo deve ser moderno, limpo e em altíssima resolução. ${finalInstruction}`,
+        `Crie um mockup luxuoso e em alta definição. ${productContext} Crie um cenário sofisticado. ${modelInstruction} Use iluminação lateral dramática para destacar texturas e criar uma atmosfera premium. ${finalInstruction}`,
+        `Crie um mockup minimalista e conceitual, ultra-limpo. ${productContext} ${modelInstruction} Apresente o modelo contra um fundo de gradiente sutil. O foco deve ser absoluto no produto, com renderização nítida e detalhada. ${finalInstruction}`
     ];
 
     const generatedMockups: string[] = [];
@@ -318,6 +327,8 @@ export const generateProductMockups = async (base64Image: string, content: Produ
             // Se um mockup individual falhar, registra o erro e continua para o próximo.
             console.error(`Falha ao gerar um mockup para o prompt: "${prompt.substring(0, 50)}..."`, error);
         }
+        // Adiciona um pequeno atraso antes da próxima iteração para reduzir ainda mais a carga de pico.
+        await new Promise(resolve => setTimeout(resolve, 250));
     }
 
     return generatedMockups;

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ProductInput from './components/ProductInput';
 import ProductOutput from './components/ProductOutput';
@@ -36,32 +35,28 @@ const App: React.FC = () => {
 
     try {
       if (image) {
-        // --- IMAGE-BASED GENERATION ---
+        // --- IMAGE-BASED GENERATION (SEQUENTIAL FLOW FOR STABILITY) ---
 
-        // 1. Generate content and main image in parallel for performance.
-        const [content, newImage] = await Promise.all([
-          generateProductContent(image, title),
-          generateProductImages(image)
-        ]);
-        
+        // 1. Generate content first.
+        const content = await generateProductContent(image, title);
         setProductContent(content);
-        setGeneratedImage(newImage);
-        setGenerationStep('images'); // Transition to loading secondary images (mockups, banner)
+        
+        // Update UI to show content is ready and images are now being generated.
+        setGenerationStep('images');
 
-        // If the main image fails to generate, we can't create mockups or a banner.
+        // 2. Generate the main product image.
+        const newImage = await generateProductImages(image);
+        setGeneratedImage(newImage);
+
+        // If the main image fails, we can't create mockups. We stop here.
         if (!newImage) {
           setGenerationStep('done');
           return;
         }
 
-        // 2. With the main image ready, generate mockups and the coupon banner in parallel.
-        const secondaryImageTasks: Promise<any>[] = [];
-        
-        secondaryImageTasks.push(
-          generateProductMockups(newImage, content).then(setGeneratedMockups)
-        );
-        
-        await Promise.all(secondaryImageTasks);
+        // 3. With the main image ready, generate mockups.
+        const mockups = await generateProductMockups(newImage, content);
+        setGeneratedMockups(mockups);
 
         setGenerationStep('done');
 
@@ -74,7 +69,18 @@ const App: React.FC = () => {
 
     } catch (err) {
       console.error(err);
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+      let errorMessage = 'A API parece estar sobrecarregada ou instável. Por favor, tente novamente em alguns instantes.';
+      
+      if (err instanceof Error) {
+        if (err.message.includes('política de segurança')) {
+          errorMessage = 'Sua solicitação foi bloqueada por nossa política de segurança. Tente usar uma imagem ou texto diferente.';
+        } else if (err.message.includes('429') || err.message.toLowerCase().includes('rate limit')) {
+          errorMessage = 'Muitas solicitações foram feitas em um curto período. Por favor, aguarde um momento e tente novamente.';
+        } else if (err.message.includes('formato inválido')) {
+          errorMessage = 'A IA retornou uma resposta em formato inesperado. Isso pode ser um problema temporário. Tente novamente.';
+        }
+      }
+      
       setError(errorMessage);
       setGenerationStep('error');
     }
