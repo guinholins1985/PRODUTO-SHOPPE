@@ -6,6 +6,7 @@ import TrashIcon from './icons/TrashIcon';
 import { GenerationStep } from '../App';
 import ImageEditor from './ImageEditor';
 import ImageIcon from './icons/ImageIcon';
+import LinkIcon from './icons/LinkIcon';
 
 interface ProductOutputProps {
   content: ProductContent | null;
@@ -77,18 +78,41 @@ const ImageResult: React.FC<{
   title: string;
   imageSrc: string | null;
   isLoading: boolean;
-  onImageClick: (src: string) => void;
+  onEditClick: (src: string) => void;
   aspectRatio?: string;
-}> = ({ title, imageSrc, isLoading, onImageClick, aspectRatio = 'aspect-square' }) => {
+}> = ({ title, imageSrc, isLoading, onEditClick, aspectRatio = 'aspect-square' }) => {
+  const photopeaUrl = imageSrc
+    ? `https://www.photopea.com#${encodeURIComponent(JSON.stringify({ files: [imageSrc] }))}`
+    : '#';
+
   return (
-    <div className="text-center">
+    <div className="text-center group relative">
       {imageSrc ? (
-        <img
-          src={imageSrc}
-          alt={title}
-          className={`${aspectRatio} w-full object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity mb-2 border-2 border-transparent hover:border-indigo-500`}
-          onClick={() => onImageClick(imageSrc)}
-        />
+        <>
+          <img
+            src={imageSrc}
+            alt={title}
+            className={`${aspectRatio} w-full object-cover rounded-md mb-2 border-2 border-transparent transition-all`}
+          />
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-md p-2">
+            <button
+              onClick={() => onEditClick(imageSrc)}
+              className="flex items-center justify-center gap-2 px-4 py-2 mb-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition w-full max-w-[200px]"
+            >
+              <ImageIcon className="w-4 h-4" />
+              Editor Rápido
+            </button>
+            <a
+              href={photopeaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-white text-sm font-semibold rounded-lg hover:bg-gray-600 transition w-full max-w-[200px]"
+            >
+              <LinkIcon className="w-4 h-4" />
+              Editor Avançado
+            </a>
+          </div>
+        </>
       ) : (
         <div className={`${aspectRatio} w-full bg-gray-800 rounded-md flex items-center justify-center text-center text-xs text-gray-500 p-2`}>
           {isLoading ? 'Gerando...' : 'Falha na Geração'}
@@ -380,15 +404,27 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
                               src={generatedImage}
                               alt="Imagem base para banner"
                               className="aspect-video w-full object-contain rounded-md bg-gray-800 mb-3 cursor-pointer hover:opacity-80 transition-opacity border-2 border-transparent hover:border-indigo-500"
-                              onClick={() => setEditorConfig({isOpen: true, image: generatedImage, defaultText: ''})}
+                              onClick={() => setEditorConfig({isOpen: true, image: generatedImage, defaultText: content.coupon?.phrase || ''})}
+                              title="Clique para abrir o editor rápido"
                             />
-                            <button
-                              onClick={() => setEditorConfig({isOpen: true, image: generatedImage, defaultText: ''})}
-                              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
-                            >
-                                <ImageIcon className="w-5 h-5" />
-                                Abrir no Editor de Imagem
-                            </button>
+                            <div className="space-y-2">
+                                <button
+                                  onClick={() => setEditorConfig({isOpen: true, image: generatedImage, defaultText: content.coupon?.phrase || ''})}
+                                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                                >
+                                    <ImageIcon className="w-5 h-5" />
+                                    Abrir Editor Rápido
+                                </button>
+                                <a 
+                                  href={`https://www.photopea.com#${encodeURIComponent(JSON.stringify({ files: [generatedImage] }))}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition"
+                                >
+                                  <LinkIcon className="w-4 h-4" />
+                                  Editor Avançado (Photopea)
+                                </a>
+                            </div>
                           </div>
                         ) : (
                           <div className="aspect-video w-full bg-gray-800 rounded-md flex items-center justify-center text-center text-xs text-gray-500 p-2">
@@ -428,7 +464,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
                         title="Imagem Gerada por IA" 
                         imageSrc={generatedImage} 
                         isLoading={areImagesLoading && !generatedImage} 
-                        onImageClick={(src) => setEditorConfig({isOpen: true, image: src, defaultText: ''})} 
+                        onEditClick={(src) => setEditorConfig({isOpen: true, image: src, defaultText: ''})} 
                     />
                 ) : (
                     <div className="aspect-square w-full bg-gray-800 rounded-md flex items-center justify-center text-center text-sm text-gray-500 p-4">
@@ -457,7 +493,7 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content, generationStep, 
                                 title={`Mockup ${index + 1}`} 
                                 imageSrc={mockupSrc} 
                                 isLoading={false} 
-                                onImageClick={(src) => setEditorConfig({isOpen: true, image: src, defaultText: ''})} 
+                                onEditClick={(src) => setEditorConfig({isOpen: true, image: src, defaultText: ''})} 
                             />
                         ))
                     )}
