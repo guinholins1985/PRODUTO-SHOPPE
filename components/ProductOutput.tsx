@@ -414,35 +414,54 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content: initialContent, 
         {activeTab === 'data' && (
             <div className="space-y-6 animate-fade-in">
                  <InfoCard title="Dados do Produto">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                         <div className="space-y-1">
-                            <p className="text-xs text-gray-400">Categoria</p>
-                            <p className="text-gray-200">{content.category}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-xs text-gray-400">Marca</p>
-                            <p className="text-gray-200">{content.brand || 'N/A'}</p>
-                        </div>
-                         <div className="space-y-1">
-                            <p className="text-xs text-gray-400">SKU Sugerido</p>
-                            <p className="text-gray-200">{content.sku || 'N/A'}</p>
-                        </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <tbody>
+                                <tr className="border-b border-gray-800">
+                                    <td className="py-2 pr-4 font-medium text-gray-400 w-1/3">Categoria</td>
+                                    <td className="py-2 text-gray-200">{content.category}</td>
+                                </tr>
+                                <tr className="border-b border-gray-800">
+                                    <td className="py-2 pr-4 font-medium text-gray-400">Marca</td>
+                                    <td className="py-2 text-gray-200">{content.brand || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-2 pr-4 font-medium text-gray-400">SKU Sugerido</td>
+                                    <td className="py-2 text-gray-200">{content.sku || 'N/A'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                  </InfoCard>
 
                  <InfoCard title="Variações do Produto">
-                    <div className="space-y-3">
-                        {variations.map((variation, index) => (
-                             <div key={index} className="grid grid-cols-10 gap-2 items-center p-2 bg-gray-800/70 rounded-md">
-                                <input type="text" placeholder="Cor" value={variation.color || ''} onChange={(e) => handleVariationChange(index, 'color', e.target.value)} className="col-span-3 w-full p-2 bg-gray-900 border border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
-                                <input type="text" placeholder="Tamanho" value={variation.size || ''} onChange={(e) => handleVariationChange(index, 'size', e.target.value)} className="col-span-2 w-full p-2 bg-gray-900 border border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
-                                <input type="number" placeholder="Estoque" value={variation.stock ?? ''} onChange={(e) => handleVariationChange(index, 'stock', e.target.value)} className="col-span-2 w-full p-2 bg-gray-900 border border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
-                                <input type="number" step="0.01" placeholder="Preço" value={variation.price ?? ''} onChange={(e) => handleVariationChange(index, 'price', e.target.value)} className="col-span-2 w-full p-2 bg-gray-900 border border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
-                                <button onClick={() => removeVariation(index)} className="col-span-1 flex justify-center items-center text-gray-500 hover:text-red-400 transition">
-                                    <TrashIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ))}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+                                <tr>
+                                    <th className="px-4 py-2">Cor</th>
+                                    <th className="px-4 py-2">Tamanho</th>
+                                    <th className="px-4 py-2">Estoque</th>
+                                    <th className="px-4 py-2">Preço</th>
+                                    <th className="px-4 py-2 w-10"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {variations.map((variation, index) => (
+                                     <tr key={index} className="border-b border-gray-800">
+                                        <td className="p-1"><input type="text" placeholder="Cor" value={variation.color || ''} onChange={(e) => handleVariationChange(index, 'color', e.target.value)} className="w-full p-2 bg-gray-900 border border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" /></td>
+                                        <td className="p-1"><input type="text" placeholder="Tamanho" value={variation.size || ''} onChange={(e) => handleVariationChange(index, 'size', e.target.value)} className="w-full p-2 bg-gray-900 border border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" /></td>
+                                        <td className="p-1"><input type="number" placeholder="Estoque" value={variation.stock ?? ''} onChange={(e) => handleVariationChange(index, 'stock', e.target.value)} className="w-full p-2 bg-gray-900 border border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" /></td>
+                                        <td className="p-1"><input type="number" step="0.01" placeholder="Preço" value={variation.price ?? ''} onChange={(e) => handleVariationChange(index, 'price', e.target.value)} className="w-full p-2 bg-gray-900 border border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" /></td>
+                                        <td className="p-1 text-center">
+                                            <button onClick={() => removeVariation(index)} className="text-gray-500 hover:text-red-400 transition p-2">
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                      <button onClick={addVariation} className="mt-4 text-sm text-indigo-400 hover:text-indigo-300 font-medium transition">
                         + Adicionar Variação
@@ -450,15 +469,19 @@ const ProductOutput: React.FC<ProductOutputProps> = ({ content: initialContent, 
                  </InfoCard>
                 
                  <InfoCard title="Logística">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <p className="text-xs text-gray-400">Peso (kg)</p>
-                            <p className="text-gray-200">{content.weight || 'N/A'}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-xs text-gray-400">Dimensões (cm)</p>
-                            <p className="text-gray-200">{content.dimensions || 'N/A'}</p>
-                        </div>
+                    <div className="overflow-x-auto">
+                       <table className="w-full text-sm">
+                            <tbody>
+                                <tr className="border-b border-gray-800">
+                                    <td className="py-2 pr-4 font-medium text-gray-400 w-1/3">Peso (kg)</td>
+                                    <td className="py-2 text-gray-200">{content.weight || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-2 pr-4 font-medium text-gray-400">Dimensões (cm)</td>
+                                    <td className="py-2 text-gray-200">{content.dimensions || 'N/A'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </InfoCard>
             </div>
