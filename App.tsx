@@ -3,9 +3,25 @@ import ProductInput from './components/ProductInput';
 import ProductOutput from './components/ProductOutput';
 import { generateProductContent, generateProductImages, generateProductMockups } from './services/geminiService';
 import { ProductContent, GeneratedProductImage } from './types';
+import SparklesIcon from './components/icons/SparklesIcon';
 
 // This type is used to track the UI state through the generation process.
 export type GenerationStep = 'idle' | 'content' | 'images' | 'error' | 'done';
+
+const Header: React.FC = () => (
+    <header className="sticky top-0 z-10 bg-gray-900/50 backdrop-blur-md">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16 border-b border-gray-800">
+                <div className="flex items-center gap-2">
+                    <SparklesIcon className="h-6 w-6 text-indigo-400" />
+                    <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">
+                        MEGA ANÚNCIO
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+);
 
 const App: React.FC = () => {
   const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
@@ -88,21 +104,39 @@ const App: React.FC = () => {
 
   return (
     <div className="bg-gray-900 text-white min-h-screen font-sans">
-      <header className="py-6 px-4 sm:px-8 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
-        <h1 className="text-2xl sm:text-3xl font-bold text-center">MEGA ANUNCIO</h1>
-        <p className="text-center text-gray-400 mt-2 text-sm sm:text-base">Crie descrições, títulos e imagens para seus produtos em segundos.</p>
-      </header>
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-8 items-start">
-        <ProductInput onGenerate={handleGenerate} generationStep={generationStep} />
-        <ProductOutput 
-          content={productContent} 
-          generationStep={generationStep} 
-          error={error} 
-          generatedImage={generatedImage}
-          generatedMockups={generatedMockups}
-        />
+      <Header />
+      <main className="container mx-auto px-4 py-8 sm:py-12">
+        {/* HERO SECTION */}
+        <section className="text-center max-w-4xl mx-auto mb-12 sm:mb-16">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">
+                O Futuro do Anúncio de Produtos
+            </h1>
+            <p className="mt-4 text-lg sm:text-xl text-gray-300">
+                Transforme uma foto em um anúncio completo. <span className="font-semibold text-white">Instantaneamente.</span>
+            </p>
+            <p className="mt-2 text-gray-400 max-w-2xl mx-auto">
+                Gere títulos, descrições, imagens de marketing e roteiros de vídeo com o poder da IA. Otimizado para vender mais.
+            </p>
+             <a href="#app-section" className="mt-8 inline-flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-700 transition-transform hover:scale-105 duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-indigo-500 animate-pulse-slow">
+                <SparklesIcon className="w-5 h-5" />
+                Comece a Criar Agora
+            </a>
+        </section>
+
+        {/* APP SECTION */}
+        <div id="app-section" className="flex flex-col items-center gap-8">
+            <ProductInput onGenerate={handleGenerate} generationStep={generationStep} />
+            <ProductOutput 
+                content={productContent} 
+                generationStep={generationStep} 
+                error={error} 
+                generatedImage={generatedImage}
+                generatedMockups={generatedMockups}
+            />
+        </div>
       </main>
-      <footer className="text-center py-4 text-gray-500 text-sm">
+
+      <footer className="text-center py-6 text-gray-500 text-sm">
         Powered by Google Gemini API
       </footer>
     </div>

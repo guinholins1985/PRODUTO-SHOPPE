@@ -131,12 +131,12 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
   const getButtonText = () => {
     if (generationStep === 'content') return 'Gerando Conteúdo...';
     if (generationStep === 'images') return 'Gerando Imagens...';
-    return 'Gerar Conteúdo';
+    return 'Gerar Anúncio Completo';
   }
 
   return (
-    <div className="w-full lg:w-1/2 p-4 sm:p-6 bg-gray-800/50 rounded-2xl border border-gray-700 backdrop-blur-sm self-start lg:sticky lg:top-32">
-      <h2 className="text-xl sm:text-2xl font-bold mb-4 text-gray-100">1. Forneça os Detalhes</h2>
+    <section className="w-full max-w-4xl p-4 sm:p-6 bg-gray-800/50 rounded-2xl border border-gray-700 backdrop-blur-sm">
+      <h2 className="text-xl sm:text-2xl font-bold mb-4 text-gray-100">1. Envie seu Produto</h2>
       <form onSubmit={handleSubmit} className="space-y-6">
         
         <div>
@@ -148,7 +148,7 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
             onDragLeave={onDragLeave}
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`flex justify-center items-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-300 ${isDragging ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-600 hover:border-indigo-500 hover:bg-gray-800'}`}
+            className={`flex justify-center items-center w-full h-48 sm:h-64 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-300 ${isDragging ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-600 hover:border-indigo-500 hover:bg-gray-800'}`}
           >
             <input
               type="file"
@@ -171,7 +171,7 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
 
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-400 mb-2">
-            Insira palavras-chave para refinar (opcional)
+            Ou insira palavras-chave para refinar (opcional)
           </label>
           <input
             type="text"
@@ -203,7 +203,7 @@ const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, generationStep 
           )}
         </button>
       </form>
-    </div>
+    </section>
   );
 };
 

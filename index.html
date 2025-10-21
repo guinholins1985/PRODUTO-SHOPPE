@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -16,6 +16,47 @@
   }
 }
 </script>
+<style>
+  @keyframes aurora {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle at top left, rgba(121, 40, 202, 0.2), transparent 40%),
+                radial-gradient(circle at bottom right, rgba(2, 132, 199, 0.2), transparent 40%);
+    background-size: 200% 200%;
+    animation: aurora 15s ease infinite;
+    z-index: -1;
+    will-change: background-position;
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-in-out;
+  }
+  @keyframes fade-in-up {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
+  .animate-fade-in-up {
+      animation: fade-in-up 0.5s ease-in-out forwards;
+  }
+</style>
 </head>
   <body class="bg-gray-900 text-white">
     <div id="root"></div>
