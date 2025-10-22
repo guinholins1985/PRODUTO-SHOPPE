@@ -48,3 +48,15 @@ export interface ProductContent {
  * Represents the single AI-generated image for the product.
  */
 export type GeneratedProductImage = string | null;
+
+/**
+ * Defines the AI services that can be configured in the admin panel.
+ */
+export type SupportedAIService = 'gemini'; // Can be extended, e.g., 'gemini' | 'openai' | 'anthropic'
+
+/**
+ * Defines the structure for storing multiple API keys.
+ */
+export type ApiKeySet = {
+  [key in SupportedAIService]?: string;
+};

@@ -1,7 +1,27 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { ProductContent, GeneratedProductImage } from '../types';
+import { ProductContent, GeneratedProductImage, ApiKeySet, SupportedAIService } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getApiKeyForService = (service: SupportedAIService): string => {
+  const keysString = localStorage.getItem('ai_api_keys');
+  if (keysString) {
+    try {
+      const keys: ApiKeySet = JSON.parse(keysString);
+      if (keys[service]) {
+        return keys[service]!;
+      }
+    } catch (e) {
+      console.error("Failed to parse API keys from localStorage", e);
+    }
+  }
+
+  // Fallback specific for Gemini using process.env
+  if (service === 'gemini' && process.env.API_KEY) {
+      return process.env.API_KEY;
+  }
+  
+  throw new Error(`API Key para '${service}' não configurada. O administrador precisa configurar a chave no painel de admin.`);
+};
+
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -140,6 +160,7 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 1000): Pr
 
 
 export const generateProductContent = async (image: File | null, title: string): Promise<ProductContent> => {
+  const ai = new GoogleGenAI({ apiKey: getApiKeyForService('gemini') });
   const model = 'gemini-2.5-pro';
   const parts: any[] = [];
   
@@ -213,7 +234,54 @@ export const generateProductContent = async (image: File | null, title: string):
   }
 };
 
+export const generateImageFromText = async (prompt: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: getApiKeyForService('gemini') });
+  const model = 'gemini-2.5-flash-image';
+
+  try {
+    const response = await withRetry(async () => {
+      const result = await ai.models.generateContent({
+        model: model,
+        contents: {
+          parts: [
+            { text: `Fotografia de produto profissional de altíssima qualidade, estilo de estúdio, fundo limpo e minimalista, iluminação cinematográfica: ${prompt}` },
+          ],
+        },
+        config: {
+          responseModalities: [Modality.IMAGE],
+        },
+      });
+
+      if (result.promptFeedback?.blockReason) {
+        throw new Error(`A geração de imagem foi bloqueada pela política de segurança: ${result.promptFeedback.blockReason}.`);
+      }
+      return result;
+    });
+
+    const candidate = response.candidates?.[0];
+    if (candidate?.content?.parts) {
+      for (const part of candidate.content.parts) {
+        if (part.inlineData) {
+          const base64ImageBytes: string = part.inlineData.data;
+          return `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
+        }
+      }
+    }
+
+    throw new Error("A IA não retornou uma imagem, embora a solicitação tenha sido bem-sucedida.");
+
+  } catch (error) {
+    console.error("Falha ao gerar a imagem do texto após múltiplas tentativas:", error);
+    if (error instanceof Error && (error.message.toLowerCase().includes('safety') || error.message.includes('política de segurança'))) {
+      throw new Error(`A geração de imagem foi bloqueada pela política de segurança. Tente um prompt diferente.`);
+    }
+    throw new Error("Não foi possível gerar a imagem a partir do texto. A API pode estar instável ou sobrecarregada. Por favor, tente novamente mais tarde.");
+  }
+};
+
+
 export const generateProductImages = async (image: File): Promise<GeneratedProductImage> => {
+  const ai = new GoogleGenAI({ apiKey: getApiKeyForService('gemini') });
   try {
     const imagePart = await fileToGenerativePart(image);
     
@@ -243,11 +311,14 @@ export const generateProductImages = async (image: File): Promise<GeneratedProdu
       return result;
     });
 
-    for (const part of response.candidates[0].content.parts) {
+    const candidate = response.candidates?.[0];
+    if (candidate?.content?.parts) {
+      for (const part of candidate.content.parts) {
         if (part.inlineData) {
-            const base64ImageBytes: string = part.inlineData.data;
-            return `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
+          const base64ImageBytes: string = part.inlineData.data;
+          return `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
         }
+      }
     }
     
     console.warn("API response did not contain an image.", response);
@@ -263,6 +334,7 @@ export const generateProductImages = async (image: File): Promise<GeneratedProdu
 };
 
 export const generateProductMockups = async (base64Image: string, content: ProductContent): Promise<string[]> => {
+    const ai = new GoogleGenAI({ apiKey: getApiKeyForService('gemini') });
     if (!base64Image) return [];
 
     const productContext = `O produto é da categoria "${content.category}" e descrito como: "${content.description.substring(0, 150)}...".`;
@@ -312,10 +384,13 @@ export const generateProductMockups = async (base64Image: string, content: Produ
                     return null; // Retorna nulo se bloqueado, para não quebrar o loop.
                 }
 
-                for (const part of result.candidates[0].content.parts) {
+                const candidate = result.candidates?.[0];
+                if (candidate?.content?.parts) {
+                  for (const part of candidate.content.parts) {
                     if (part.inlineData) {
-                       return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
                     }
+                  }
                 }
                 return null;
             });
