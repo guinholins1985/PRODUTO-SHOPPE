@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ProductContent, GeneratedProductImage, ApiKeySet, SupportedAIService } from '../types';
 
@@ -19,11 +20,6 @@ const getApiKeyForService = (service: SupportedAIService): string => {
       return process.env.API_KEY;
   }
   
-  // Hardcoded Pexels API key as a final fallback if not in admin panel.
-  if (service === 'pexels') {
-      return 'uSItnnPlvqtRklTGrgBXJNgSjcOwcLj8BHF6mdYpnfycEYU7pdQNOl30';
-  }
-
   throw new Error(`API Key para '${service}' não configurada. O administrador precisa configurar a chave no painel de admin.`);
 };
 
@@ -240,53 +236,45 @@ export const generateProductContent = async (image: File | null, title: string):
 };
 
 export const generateImageFromText = async (prompt: string): Promise<string> => {
-  const apiKey = getApiKeyForService('pexels');
-  const pexelsUrl = `https://api.pexels.com/v1/search?query=${encodeURIComponent(prompt)}&per_page=1`;
+  const ai = new GoogleGenAI({ apiKey: getApiKeyForService('gemini') });
+  const model = 'gemini-2.5-flash'; // Using the user-provided Gemini Flash model for initial image generation
 
   try {
-    // 1. Search for an image on Pexels
-    const pexelsResponse = await fetch(pexelsUrl, {
-      headers: {
-        Authorization: apiKey,
-      },
+    const response = await withRetry(async () => {
+      const result = await ai.models.generateContent({
+        model: model,
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseModalities: [Modality.IMAGE], // Request an image response
+        },
+      });
+
+      if (result.promptFeedback?.blockReason) {
+        throw new Error(`A geração de imagem foi bloqueada pela política de segurança: ${result.promptFeedback.blockReason}. Tente um prompt diferente.`);
+      }
+      return result;
     });
 
-    if (!pexelsResponse.ok) {
-       const errorData = await pexelsResponse.json();
-       throw new Error(`Erro na API Pexels: ${pexelsResponse.status} ${pexelsResponse.statusText}. Detalhe: ${errorData.error || 'Chave de API inválida ou problema na requisição.'}`);
+    const candidate = response.candidates?.[0];
+    if (candidate?.content?.parts) {
+      for (const part of candidate.content.parts) {
+        if (part.inlineData) {
+          const base64ImageBytes: string = part.inlineData.data;
+          // Return as a full data URL string
+          return `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
+        }
+      }
     }
 
-    const pexelsData = await pexelsResponse.json();
-    const photo = pexelsData.photos?.[0];
-
-    if (!photo) {
-      throw new Error("Nenhuma imagem encontrada na Pexels para a sua busca. Tente palavras-chave diferentes.");
-    }
-
-    const imageUrl = photo.src.large2x; // A good quality image
-
-    // 2. Fetch the image and convert it to a base64 data URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-        throw new Error(`Falha ao baixar a imagem da Pexels: ${imageResponse.statusText}`);
-    }
-    const blob = await imageResponse.blob();
-
-    const base64EncodedDataPromise = new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-
-    return await base64EncodedDataPromise;
+    console.warn("API response did not contain an image.", response);
+    throw new Error("A IA não retornou uma imagem para o prompt fornecido. Tente um prompt diferente ou mais descritivo.");
 
   } catch (error) {
-    console.error("Falha ao gerar imagem da Pexels:", error);
-    if (error instanceof Error) {
-        throw new Error(`Não foi possível obter a imagem da Pexels. ${error.message}`);
+    console.error("Falha ao gerar imagem a partir do texto após múltiplas tentativas:", error);
+    if (error instanceof Error && error.message.includes('política de segurança')) {
+      throw error;
     }
-    throw new Error("Não foi possível obter a imagem da Pexels. Verifique a chave de API e sua conexão.");
+    throw new Error("Não foi possível gerar a imagem a partir do texto. A API pode estar instável ou a entrada é inválida. Por favor, tente novamente.");
   }
 };
 

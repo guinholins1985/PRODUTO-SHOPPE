@@ -1,3 +1,4 @@
+
 export interface ProductVariation {
   color?: string;
   size?: string;
@@ -52,7 +53,7 @@ export type GeneratedProductImage = string | null;
 /**
  * Defines the AI services that can be configured in the admin panel.
  */
-export type SupportedAIService = 'gemini' | 'pexels'; // Can be extended, e.g., 'gemini' | 'openai' | 'anthropic'
+export type SupportedAIService = 'gemini'; // Can be extended, e.g., 'gemini' | 'openai' | 'anthropic'
 
 /**
  * Defines the structure for storing multiple API keys.

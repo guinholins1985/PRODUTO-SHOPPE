@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import LockIcon from './icons/LockIcon';
 import EyeIcon from './icons/EyeIcon';
@@ -12,7 +13,6 @@ interface AdminPanelProps {
 // Configuration for supported AI services
 const SUPPORTED_SERVICES: { id: SupportedAIService; name: string }[] = [
   { id: 'gemini', name: 'Google Gemini' },
-  { id: 'pexels', name: 'Pexels (Imagens)' },
   // Future services can be added here, e.g.:
   // { id: 'openai', name: 'OpenAI' },
   // { id: 'anthropic', name: 'Anthropic' },
